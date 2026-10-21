@@ -169,8 +169,8 @@ Proyectouve/
 
 ### Paso 1: Clonar el repositorio e instalar dependencias PHP
 ```bash
-git clone <URL_DEL_REPOSITORIO>
-cd Proyectouve
+git clone https://github.com/AndresCarvajal04/Prueba-uva.git
+cd Prueba-uva
 composer install
 ```
 
