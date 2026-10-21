@@ -7,8 +7,12 @@
     "license": "MIT",
     "require": {
         "php": "^8.3",
+        "ext-mbstring": "*",
         "laravel/framework": "^13.17",
         "laravel/tinker": "^3.0"
+    },
+    "replace": {
+        "symfony/polyfill-mbstring": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
