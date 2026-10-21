@@ -127,19 +127,5 @@
 @endsection
 
 @push('scripts')
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const selectCliente = document.getElementById('select-cliente-crear');
-        const inputCiudad = document.getElementById('input-ciudad-crear');
-        if (selectCliente && inputCiudad) {
-            selectCliente.addEventListener('change', function () {
-                const selectedOption = selectCliente.options[selectCliente.selectedIndex];
-                const ciudad = selectedOption ? selectedOption.getAttribute('data-ciudad') : '';
-                if (ciudad) {
-                    inputCiudad.value = ciudad;
-                }
-            });
-        }
-    });
-</script>
+    <script src="{{ asset('js/pedidos-form.js') }}" defer></script>
 @endpush

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StorePedidoRequest;
+use App\Http\Requests\UpdatePedidoRequest;
 use App\Http\Resources\ClienteResource;
 use App\Http\Resources\PedidoResource;
 use App\Models\Cliente;
@@ -58,19 +60,11 @@ class PedidoController extends Controller
     }
 
     /**
-     * Crea un nuevo pedido vía API con sanitización de entradas.
+     * Crea un nuevo pedido vía API utilizando StorePedidoRequest.
      */
-    public function store(Request $request): JsonResponse
+    public function store(StorePedidoRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'cliente_id' => ['required', 'integer', 'exists:clientes,id'],
-            'fecha' => ['nullable', 'date'],
-            'total' => ['required', 'numeric', 'min:1', 'max:999999999.99'],
-            'peso_kg' => ['nullable', 'numeric', 'min:0.1', 'max:50000'],
-            'ciudad_destino' => ['nullable', 'string', 'max:100'],
-            'estado' => ['nullable', Rule::in(Pedido::ESTADOS)],
-            'notas' => ['nullable', 'string', 'max:1000'],
-        ]);
+        $validated = $request->validated();
 
         $cliente = Cliente::findOrFail($validated['cliente_id']);
         $estadoInicial = $validated['estado'] ?? Pedido::ESTADO_PENDIENTE;
@@ -81,12 +75,10 @@ class PedidoController extends Controller
             'estado' => $estadoInicial,
             'total' => $validated['total'],
             'peso_kg' => $validated['peso_kg'] ?? 1.00,
-            'ciudad_destino' => isset($validated['ciudad_destino'])
-                ? trim(strip_tags($validated['ciudad_destino']))
+            'ciudad_destino' => ! empty($validated['ciudad_destino'])
+                ? $validated['ciudad_destino']
                 : $cliente->ciudad,
-            'notas' => isset($validated['notas'])
-                ? trim(strip_tags($validated['notas']))
-                : null,
+            'notas' => $validated['notas'] ?? null,
         ]);
 
         $cotizacionInfo = null;
@@ -153,9 +145,9 @@ class PedidoController extends Controller
     }
 
     /**
-     * Edición completa de un pedido.
+     * Edición completa de un pedido utilizando UpdatePedidoRequest.
      */
-    public function update(Request $request, Pedido $pedido): JsonResponse
+    public function update(UpdatePedidoRequest $request, Pedido $pedido): JsonResponse
     {
         $esAdmin = $this->esAdministrador($request);
 
@@ -166,21 +158,7 @@ class PedidoController extends Controller
             ], 403);
         }
 
-        $validated = $request->validate([
-            'cliente_id' => ['required', 'integer', 'exists:clientes,id'],
-            'fecha' => ['required', 'date'],
-            'estado' => ['required', Rule::in(Pedido::ESTADOS)],
-            'total' => ['required', 'numeric', 'min:0', 'max:999999999.99'],
-            'peso_kg' => ['required', 'numeric', 'min:0.1', 'max:50000'],
-            'ciudad_destino' => ['required', 'string', 'max:100'],
-            'costo_envio' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
-            'notas' => ['nullable', 'string', 'max:1000'],
-        ]);
-
-        $validated['ciudad_destino'] = trim(strip_tags($validated['ciudad_destino']));
-        if (isset($validated['notas'])) {
-            $validated['notas'] = trim(strip_tags($validated['notas']));
-        }
+        $validated = $request->validated();
 
         $estadoAnterior = $pedido->estado;
         $pedido->fill($validated);

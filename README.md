@@ -86,9 +86,15 @@ Proyectouve/
 │   │   ├── Controllers/
 │   │   │   ├── Api/
 │   │   │   │   └── PedidoController.php       # Controlador API REST (JSON serializado con API Resources)
-│   │   │   └── PedidoWebController.php        # Controlador Web multipágina (Órdenes, Clientes, Reporte, Guía)
+│   │   │   ├── ClienteWebController.php       # Controlador Web del Directorio Maestro de Clientes (SRP)
+│   │   │   ├── PedidoWebController.php        # Controlador Web de Órdenes de Pedido, Flujo y Tablero (SRP)
+│   │   │   └── ReporteWebController.php       # Controlador Web del Consolidado Mensual de Ventas (SRP)
 │   │   ├── Middleware/
 │   │   │   └── SecurityHeadersMiddleware.php  # Cabeceras HTTP de seguridad (nosniff, SAMEORIGIN, XSS-Protection)
+│   │   ├── Requests/
+│   │   │   ├── ClienteRequest.php             # Validación y sanitización desacoplada para Clientes
+│   │   │   ├── StorePedidoRequest.php         # Validación y sanitización desacoplada para creación de Pedidos
+│   │   │   └── UpdatePedidoRequest.php        # Validación y sanitización desacoplada para edición de Pedidos
 │   │   └── Resources/
 │   │       ├── ClienteResource.php            # Serialización controlada y segura de la entidad Cliente
 │   │       └── PedidoResource.php             # Serialización controlada y segura de la entidad Pedido
@@ -113,6 +119,12 @@ Proyectouve/
 │   │   └── DatabaseSeeder.php                 # Datos de prueba (usuarios, 5 clientes y 10 pedidos del mes actual y previo)
 │   ├── database.sqlite                        # Base de datos SQLite lista para ejecución local
 │   └── schema.sql                             # Script SQL independiente (DDL + DML + consulta de reporte mensual)
+├── public/
+│   ├── css/
+│   │   └── corporate.css                      # Hoja de estilos corporativa desacoplada (variables, tablas, badges, inputs)
+│   └── js/
+│       ├── pedidos-form.js                    # Lógica JS desacoplada para autocompletado de formulario de pedidos
+│       └── tablero-react.js                   # Módulo JS/React 18 desacoplado para el Tablero Dinámico
 ├── resources/
 │   ├── js/
 │   │   └── components/

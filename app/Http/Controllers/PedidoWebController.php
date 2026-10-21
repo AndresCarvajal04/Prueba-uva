@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StorePedidoRequest;
+use App\Http\Requests\UpdatePedidoRequest;
 use App\Models\Cliente;
 use App\Models\Pedido;
 use App\Services\ReporteVentasService;
@@ -12,6 +14,13 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
+/**
+ * Controlador Web de Órdenes de Pedido.
+ *
+ * Responsabilidad única (SRP): gestionar el ciclo de vida de las órdenes de pedido
+ * (listado, creación, transición de estado, auditoría/edición y eliminación),
+ * además de la navegación de perfil y tablero operativo.
+ */
 class PedidoWebController extends Controller
 {
     public function __construct(
@@ -67,7 +76,7 @@ class PedidoWebController extends Controller
     }
 
     /**
-     * Sección 3: Edición y Auditoría de una Orden de Pedido.
+     * Vista dedicada para Edición y Auditoría de una Orden de Pedido.
      */
     public function edit(Request $request, Pedido $pedido): View
     {
@@ -84,46 +93,7 @@ class PedidoWebController extends Controller
     }
 
     /**
-     * Sección 4: Directorio Maestro de Clientes Corporativos (CRUD).
-     */
-    public function clientesIndex(Request $request): View
-    {
-        $clientes = Cliente::withCount('pedidos')->orderBy('nombre')->get();
-
-        $clienteEditar = null;
-        if ($request->filled('editar_cliente')) {
-            $clienteEditar = Cliente::find($request->query('editar_cliente'));
-        }
-
-        return view('clientes.index', [
-            'clientes' => $clientes,
-            'clienteEditar' => $clienteEditar,
-            'conteosEstados' => $this->obtenerConteosEstados(),
-            'esAdmin' => $this->esAdministrador($request),
-            'seccionActiva' => 'clientes',
-        ]);
-    }
-
-    /**
-     * Sección 5: Reporte Consolidado de Ventas por Cliente en el Mes Actual.
-     */
-    public function reporteVentas(Request $request): View
-    {
-        $reporteMensual = $this->reporteVentasService->obtenerVentasMesActual();
-
-        return view('reportes.ventas', [
-            'reporteMensual' => $reporteMensual,
-            'mesActualNombre' => Carbon::now()->translatedFormat('F Y'),
-            'inicioMes' => Carbon::now()->startOfMonth()->format('Y-m-d'),
-            'finMes' => Carbon::now()->endOfMonth()->format('Y-m-d'),
-            'conteosEstados' => $this->obtenerConteosEstados(),
-            'esAdmin' => $this->esAdministrador($request),
-            'seccionActiva' => 'reportes',
-        ]);
-    }
-
-    /**
-     * Sección 6: Tablero Dinámico de Operaciones en Tiempo Real (React 18).
+     * Sección 5: Tablero Dinámico de Operaciones en Tiempo Real (React 18).
      */
     public function monitorReact(Request $request): View
     {
@@ -135,7 +105,7 @@ class PedidoWebController extends Controller
     }
 
     /**
-     * Sección 7: Manual Operativo Paso a Paso y Matriz de Roles.
+     * Sección 6: Manual Operativo Paso a Paso y Matriz de Roles.
      */
     public function guiaOperativa(Request $request): View
     {
@@ -147,34 +117,25 @@ class PedidoWebController extends Controller
     }
 
     /**
-     * Registra una nueva orden de pedido con sanitización de campos.
+     * Registra una nueva orden de pedido utilizando StorePedidoRequest.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(StorePedidoRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'cliente_id' => ['required', 'integer', 'exists:clientes,id'],
-            'fecha' => ['required', 'date'],
-            'total' => ['required', 'numeric', 'min:1', 'max:999999999.99'],
-            'peso_kg' => ['required', 'numeric', 'min:0.1', 'max:50000'],
-            'ciudad_destino' => ['nullable', 'string', 'max:100'],
-            'estado' => ['nullable', Rule::in(Pedido::ESTADOS)],
-            'notas' => ['nullable', 'string', 'max:1000'],
-        ]);
-
+        $validated = $request->validated();
         $cliente = Cliente::findOrFail($validated['cliente_id']);
         $estado = $validated['estado'] ?? Pedido::ESTADO_PENDIENTE;
         $ciudadDestino = ! empty($validated['ciudad_destino'])
-            ? trim(strip_tags($validated['ciudad_destino']))
+            ? $validated['ciudad_destino']
             : $cliente->ciudad;
 
         $pedido = Pedido::create([
             'cliente_id' => $cliente->id,
-            'fecha' => $validated['fecha'],
+            'fecha' => $validated['fecha'] ?? Carbon::now()->toDateString(),
             'estado' => $estado,
             'total' => $validated['total'],
-            'peso_kg' => $validated['peso_kg'],
+            'peso_kg' => $validated['peso_kg'] ?? 5.00,
             'ciudad_destino' => $ciudadDestino,
-            'notas' => isset($validated['notas']) ? trim(strip_tags($validated['notas'])) : null,
+            'notas' => $validated['notas'] ?? null,
         ]);
 
         $mensaje = "Orden de pedido #{$pedido->id} registrada correctamente para {$cliente->nombre}.";
@@ -194,7 +155,7 @@ class PedidoWebController extends Controller
     }
 
     /**
-     * Actualiza el estado operativo de un pedido.
+     * Actualiza el estado operativo de un pedido y cotiza envío si pasa a despachado.
      */
     public function cambiarEstado(Request $request, Pedido $pedido): RedirectResponse
     {
@@ -230,9 +191,9 @@ class PedidoWebController extends Controller
     }
 
     /**
-     * Edición y auditoría integral de un pedido.
+     * Edición y auditoría integral de un pedido utilizando UpdatePedidoRequest.
      */
-    public function update(Request $request, Pedido $pedido): RedirectResponse
+    public function update(UpdatePedidoRequest $request, Pedido $pedido): RedirectResponse
     {
         $esAdmin = $this->esAdministrador($request);
 
@@ -242,22 +203,7 @@ class PedidoWebController extends Controller
                 ->with('error', "Acceso restringido: La orden #{$pedido->id} ya fue entregada y únicamente el perfil de Administrador puede editarla.");
         }
 
-        $validated = $request->validate([
-            'cliente_id' => ['required', 'integer', 'exists:clientes,id'],
-            'fecha' => ['required', 'date'],
-            'estado' => ['required', Rule::in(Pedido::ESTADOS)],
-            'total' => ['required', 'numeric', 'min:0', 'max:999999999.99'],
-            'peso_kg' => ['required', 'numeric', 'min:0.1', 'max:50000'],
-            'ciudad_destino' => ['required', 'string', 'max:100'],
-            'costo_envio' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
-            'notas' => ['nullable', 'string', 'max:1000'],
-        ]);
-
-        $validated['ciudad_destino'] = trim(strip_tags($validated['ciudad_destino']));
-        if (isset($validated['notas'])) {
-            $validated['notas'] = trim(strip_tags($validated['notas']));
-        }
-
+        $validated = $request->validated();
         $estadoAnterior = $pedido->estado;
         $pedido->fill($validated);
 
@@ -295,83 +241,6 @@ class PedidoWebController extends Controller
         return redirect()
             ->route('pedidos.index')
             ->with('success', "Orden de pedido #{$id} eliminada del sistema.");
-    }
-
-    /**
-     * Registra un nuevo cliente corporativo con sanitización.
-     */
-    public function storeCliente(Request $request): RedirectResponse
-    {
-        $validated = $request->validate([
-            'nombre' => ['required', 'string', 'max:150'],
-            'documento' => ['nullable', 'string', 'max:50', 'unique:clientes,documento'],
-            'email' => ['required', 'email', 'max:150', 'unique:clientes,email'],
-            'telefono' => ['nullable', 'string', 'max:50'],
-            'ciudad' => ['required', 'string', 'max:100'],
-            'direccion' => ['nullable', 'string', 'max:255'],
-        ]);
-
-        $datosSanitizados = array_map(
-            fn ($val) => is_string($val) ? trim(strip_tags($val)) : $val,
-            $validated
-        );
-
-        $cliente = Cliente::create($datosSanitizados);
-
-        return redirect()
-            ->route('clientes.index')
-            ->with('success', "Cliente corporativo '{$cliente->nombre}' registrado correctamente.");
-    }
-
-    /**
-     * Actualiza los datos de un cliente (Administrador).
-     */
-    public function updateCliente(Request $request, Cliente $cliente): RedirectResponse
-    {
-        if (! $this->esAdministrador($request)) {
-            return redirect()
-                ->back()
-                ->with('error', 'Solo el perfil de Administrador puede modificar el maestro de clientes.');
-        }
-
-        $validated = $request->validate([
-            'nombre' => ['required', 'string', 'max:150'],
-            'documento' => ['nullable', 'string', 'max:50', Rule::unique('clientes', 'documento')->ignore($cliente->id)],
-            'email' => ['required', 'email', 'max:150', Rule::unique('clientes', 'email')->ignore($cliente->id)],
-            'telefono' => ['nullable', 'string', 'max:50'],
-            'ciudad' => ['required', 'string', 'max:100'],
-            'direccion' => ['nullable', 'string', 'max:255'],
-        ]);
-
-        $datosSanitizados = array_map(
-            fn ($val) => is_string($val) ? trim(strip_tags($val)) : $val,
-            $validated
-        );
-
-        $cliente->update($datosSanitizados);
-
-        return redirect()
-            ->route('clientes.index')
-            ->with('success', "Información del cliente '{$cliente->nombre}' actualizada correctamente.");
-    }
-
-    /**
-     * Elimina un cliente del directorio (Administrador).
-     */
-    public function destroyCliente(Request $request, Cliente $cliente): RedirectResponse
-    {
-        if (! $this->esAdministrador($request)) {
-            return redirect()
-                ->back()
-                ->with('error', 'Solo el perfil de Administrador puede eliminar clientes.');
-        }
-
-        $nombre = $cliente->nombre;
-        $cliente->delete();
-
-        return redirect()
-            ->route('clientes.index')
-            ->with('success', "Cliente '{$nombre}' eliminado correctamente.");
     }
 
     /**

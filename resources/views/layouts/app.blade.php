@@ -9,13 +9,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
-        .tabular-nums { font-variant-numeric: tabular-nums; }
-    </style>
+    <link rel="stylesheet" href="{{ asset('css/corporate.css') }}">
     @stack('head')
 </head>
-<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col">
+<body class="corp-body">
 
     <!-- ENCABEZADO CORPORATIVO SUPERIOR -->
     <header class="bg-slate-900 text-white sticky top-0 z-30 shadow-sm">
