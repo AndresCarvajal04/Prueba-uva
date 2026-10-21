@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'transportadora' => [
+        'url' => env('TRANSPORTADORA_API_URL', 'https://tarifas.transportadora.test/v1/cotizar'),
+        'key' => env('TRANSPORTADORA_API_KEY', 'uva3-demo-token-2026'),
+        'origen' => env('TRANSPORTADORA_CIUDAD_ORIGEN', 'Bogotá D.C.'),
+        'fallback_enabled' => env('TRANSPORTADORA_FALLBACK_ENABLED', true),
+    ],
+
 ];
