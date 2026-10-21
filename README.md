@@ -1,58 +1,94 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# UVA3 Logística — Módulo de Pedidos (Parte 5: Reto Práctico)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Módulo de gestión de pedidos, cotización automática de envíos y reporte mensual de ventas por cliente para **UVA3**, desarrollado en **Laravel (PHP 8.4)** con listado interactivo en **React 18**.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Características Implementadas
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+1. **Base de Datos (`clientes` y `pedidos`):**
+   - Migraciones de Laravel (`database/migrations/`), datos de prueba (`database/seeders/DatabaseSeeder.php`) y script SQL independiente (`database/schema.sql`).
+   - Campo `estado` con los valores permitidos: `pendiente`, `despachado`, `entregado`.
+2. **Listado y Formularios Web:**
+   - Filtro rápido por estado (`todos`, `pendiente`, `despachado`, `entregado`).
+   - Formulario para registrar nuevos pedidos y selector para cambiar el estado de cualquier pedido.
+3. **API JSON (`GET /api/pedidos?estado=pendiente`):**
+   - Endpoint REST que responde en JSON con los pedidos filtrados por estado e información del cliente asociado.
+4. **Reporte de Ventas del Mes Actual:**
+   - Consulta agregada del total vendido por cliente en el mes en curso, ordenada de **mayor a menor** (`ORDER BY total_vendido DESC`), excluyendo meses anteriores.
+5. **Integración con API de Tarifas de Transportadora:**
+   - Al marcar un pedido como `despachado`, `TransportadoraService` consulta `POST https://tarifas.transportadora.test/v1/cotizar` enviando la credencial configurada en `.env` (`TRANSPORTADORA_API_KEY`).
+   - Incluye respaldo local automático si el dominio `.test` no resuelve en entorno sin mock de red, y pruebas automatizadas con `Http::fake()`.
+6. **Protección de Pedidos Entregados y Rol Administrador:**
+   - Los pedidos en estado `entregado` son inmutables para operadores (bloqueados en UI y con respuesta `HTTP 403` en backend).
+   - El **Administrador** puede corregir cualquier pedido (incluso los entregados) usando el selector de rol en la barra superior o la cabecera `X-Admin-Mode: 1`.
+7. **Listado en React 18 (Punto 7 — Opcional):**
+   - Componente en React integrado en el panel principal (y código fuente en `resources/js/components/PedidosReactApp.jsx`) que consume `GET /api/pedidos?estado=pendiente` en vivo.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+---
 
-## Learning Laravel
+## Requisitos Previos
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+- **PHP** >= 8.2 (con extensiones `pdo_sqlite` o `pdo_mysql`, `curl`, `mbstring`)
+- **Composer** >= 2.x
+- **SQLite** (configurado por defecto para ejecución inmediata) o **MySQL/MariaDB**
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+---
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+## Instalación y Ejecución Paso a Paso
 
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
+### 1. Clonar el repositorio e instalar dependencias
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+git clone <URL_DEL_REPOSITORIO>
+cd Proyectouve
+composer install
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+### 2. Configurar variables de entorno
+```bash
+cp .env.example .env
+php artisan key:generate
+```
 
-## Contributing
+En el archivo `.env` puedes configurar la credencial de la transportadora entregada por solicitud:
+```env
+TRANSPORTADORA_API_URL=https://tarifas.transportadora.test/v1/cotizar
+TRANSPORTADORA_API_KEY=uva3-token-solicitud-2026
+TRANSPORTADORA_CIUDAD_ORIGEN="Bogotá D.C."
+TRANSPORTADORA_FALLBACK_ENABLED=true
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### 3. Crear base de datos y poblar datos de prueba (Migraciones + Seeders)
+Para SQLite (por defecto):
+```bash
+php -r "file_exists('database/database.sqlite') || touch('database/database.sqlite');"
+php artisan migrate:fresh --seed
+```
+*(Alternativamente, si deseas importar el script SQL directamente en MySQL/MariaDB, puedes usar el archivo `database/schema.sql`).*
 
-## Code of Conduct
+### 4. Iniciar el servidor de desarrollo
+```bash
+php artisan serve
+```
+Abre en tu navegador: **[http://localhost:8000](http://localhost:8000)**
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+---
 
-## Security Vulnerabilities
+## Endpoints API Disponibles
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| `GET` | `/api/pedidos?estado=pendiente` | **(Requisito 3)** Retorna en JSON los pedidos filtrados por `pendiente`, `despachado` o `entregado`. |
+| `POST` | `/api/pedidos` | Crea un pedido nuevo en JSON. |
+| `PATCH` | `/api/pedidos/{id}/estado` | **(Requisitos 5 y 6)** Cambia el estado; si pasa a `despachado`, cotiza costo de envío. Bloquea si está `entregado` y no es admin (`X-Admin-Mode: 1`). |
+| `PUT` | `/api/pedidos/{id}` | **(Requisito 6)** Corrección integral del pedido (habilitado en `entregado` para el administrador). |
+| `GET` | `/api/reportes/ventas-mes` | **(Requisito 4)** Retorna en JSON el ranking de ventas por cliente en el mes actual de mayor a menor. |
 
-## License
+---
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Ejecución de Pruebas Automatizadas
+
+```bash
+php artisan test
+```
+Incluye pruebas de integración en `tests/Feature/ModuloPedidosTest.php` que verifican el endpoint JSON, el reporte mensual, la cotización `POST https://tarifas.transportadora.test/v1/cotizar` y las reglas de bloqueo/corrección de pedidos entregados.
