@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\ClienteResource;
+use App\Http\Resources\PedidoResource;
 use App\Models\Cliente;
 use App\Models\Pedido;
 use App\Services\ReporteVentasService;
@@ -21,7 +23,7 @@ class PedidoController extends Controller
 
     /**
      * GET /api/pedidos?estado=pendiente
-     * Responde en JSON con el listado de pedidos (opcionalmente filtrado por estado).
+     * Responde en JSON con recursos serializados de forma controlada.
      */
     public function index(Request $request): JsonResponse
     {
@@ -51,20 +53,20 @@ class PedidoController extends Controller
             'ok' => true,
             'filtro_estado' => ($estado !== null && $estado !== '') ? $estado : 'todos',
             'total_registros' => $pedidos->count(),
-            'data' => $pedidos,
+            'data' => PedidoResource::collection($pedidos)->resolve($request),
         ]);
     }
 
     /**
-     * Crea un nuevo pedido vía API.
+     * Crea un nuevo pedido vía API con sanitización de entradas.
      */
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'cliente_id' => ['required', 'exists:clientes,id'],
+            'cliente_id' => ['required', 'integer', 'exists:clientes,id'],
             'fecha' => ['nullable', 'date'],
-            'total' => ['required', 'numeric', 'min:1'],
-            'peso_kg' => ['nullable', 'numeric', 'min:0.1'],
+            'total' => ['required', 'numeric', 'min:1', 'max:999999999.99'],
+            'peso_kg' => ['nullable', 'numeric', 'min:0.1', 'max:50000'],
             'ciudad_destino' => ['nullable', 'string', 'max:100'],
             'estado' => ['nullable', Rule::in(Pedido::ESTADOS)],
             'notas' => ['nullable', 'string', 'max:1000'],
@@ -79,8 +81,12 @@ class PedidoController extends Controller
             'estado' => $estadoInicial,
             'total' => $validated['total'],
             'peso_kg' => $validated['peso_kg'] ?? 1.00,
-            'ciudad_destino' => $validated['ciudad_destino'] ?? $cliente->ciudad,
-            'notas' => $validated['notas'] ?? null,
+            'ciudad_destino' => isset($validated['ciudad_destino'])
+                ? trim(strip_tags($validated['ciudad_destino']))
+                : $cliente->ciudad,
+            'notas' => isset($validated['notas'])
+                ? trim(strip_tags($validated['notas']))
+                : null,
         ]);
 
         $cotizacionInfo = null;
@@ -92,18 +98,18 @@ class PedidoController extends Controller
             ]);
         }
 
+        $pedidoActualizado = $pedido->fresh('cliente');
+
         return response()->json([
             'ok' => true,
             'message' => 'Orden de pedido creada exitosamente.',
             'cotizacion' => $cotizacionInfo,
-            'data' => $pedido->fresh('cliente'),
+            'data' => (new PedidoResource($pedidoActualizado))->resolve($request),
         ], 201);
     }
 
     /**
-     * Cambia el estado de un pedido.
-     * - Si el pedido está 'entregado', bloquea modificaciones salvo que sea Administrador.
-     * - Si el nuevo estado es 'despachado', cotiza el envío en la API de la transportadora.
+     * Cambia el estado de un pedido validando permisos de rol y cotizando envío al despachar.
      */
     public function cambiarEstado(Request $request, Pedido $pedido): JsonResponse
     {
@@ -134,6 +140,7 @@ class PedidoController extends Controller
         }
 
         $pedido->update($datosActualizar);
+        $pedidoActualizado = $pedido->fresh('cliente');
 
         return response()->json([
             'ok' => true,
@@ -141,12 +148,12 @@ class PedidoController extends Controller
                 ? "Orden #{$pedido->id} despachada. Costo de envío liquidado: $" . number_format($cotizacionInfo['costo_envio'], 2)
                 : "Estado de la orden #{$pedido->id} actualizado a '{$nuevoEstado}'.",
             'cotizacion' => $cotizacionInfo,
-            'data' => $pedido->fresh('cliente'),
+            'data' => (new PedidoResource($pedidoActualizado))->resolve($request),
         ]);
     }
 
     /**
-     * Edición y corrección completa de un pedido.
+     * Edición completa de un pedido.
      */
     public function update(Request $request, Pedido $pedido): JsonResponse
     {
@@ -160,15 +167,20 @@ class PedidoController extends Controller
         }
 
         $validated = $request->validate([
-            'cliente_id' => ['required', 'exists:clientes,id'],
+            'cliente_id' => ['required', 'integer', 'exists:clientes,id'],
             'fecha' => ['required', 'date'],
             'estado' => ['required', Rule::in(Pedido::ESTADOS)],
-            'total' => ['required', 'numeric', 'min:0'],
-            'peso_kg' => ['required', 'numeric', 'min:0.1'],
+            'total' => ['required', 'numeric', 'min:0', 'max:999999999.99'],
+            'peso_kg' => ['required', 'numeric', 'min:0.1', 'max:50000'],
             'ciudad_destino' => ['required', 'string', 'max:100'],
-            'costo_envio' => ['nullable', 'numeric', 'min:0'],
+            'costo_envio' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
             'notas' => ['nullable', 'string', 'max:1000'],
         ]);
+
+        $validated['ciudad_destino'] = trim(strip_tags($validated['ciudad_destino']));
+        if (isset($validated['notas'])) {
+            $validated['notas'] = trim(strip_tags($validated['notas']));
+        }
 
         $estadoAnterior = $pedido->estado;
         $pedido->fill($validated);
@@ -183,12 +195,13 @@ class PedidoController extends Controller
         }
 
         $pedido->save();
+        $pedidoActualizado = $pedido->fresh('cliente');
 
         return response()->json([
             'ok' => true,
             'message' => "Orden #{$pedido->id} actualizada exitosamente.",
             'cotizacion' => $cotizacionInfo,
-            'data' => $pedido->fresh('cliente'),
+            'data' => (new PedidoResource($pedidoActualizado))->resolve($request),
         ]);
     }
 
@@ -235,11 +248,13 @@ class PedidoController extends Controller
     /**
      * Listado de clientes corporativos.
      */
-    public function clientes(): JsonResponse
+    public function clientes(Request $request): JsonResponse
     {
+        $clientes = Cliente::orderBy('nombre')->get();
+
         return response()->json([
             'ok' => true,
-            'data' => Cliente::orderBy('nombre')->get(),
+            'data' => ClienteResource::collection($clientes)->resolve($request),
         ]);
     }
 
@@ -249,17 +264,15 @@ class PedidoController extends Controller
             return true;
         }
 
-        $headerAdmin = $request->header('X-Admin-Mode');
-        if ($headerAdmin !== null) {
-            return in_array(strtolower($headerAdmin), ['1', 'true', 'admin', 'yes'], true);
-        }
-
-        if ($request->has('es_admin')) {
-            return $request->boolean('es_admin');
-        }
-
         if ($request->hasSession() && $request->session()->get('rol_activo') === 'admin') {
             return true;
+        }
+
+        if (app()->environment(['local', 'testing'])) {
+            $headerAdmin = $request->header('X-Admin-Mode');
+            if ($headerAdmin !== null) {
+                return in_array(strtolower($headerAdmin), ['1', 'true', 'admin', 'yes'], true);
+            }
         }
 
         return false;

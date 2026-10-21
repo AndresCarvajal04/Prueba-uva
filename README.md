@@ -83,10 +83,15 @@ Al seleccionar **`Administrador General`** en el menú desplegable superior:
 Proyectouve/
 ├── app/
 │   ├── Http/
-│   │   └── Controllers/
-│   │       ├── Api/
-│   │       │   └── PedidoController.php       # Controlador API REST (JSON: listado, creación, estado, edición, reporte)
-│   │       └── PedidoWebController.php        # Controlador Web (Dashboard, CRUD de pedidos/clientes y cambio de perfil)
+│   │   ├── Controllers/
+│   │   │   ├── Api/
+│   │   │   │   └── PedidoController.php       # Controlador API REST (JSON serializado con API Resources)
+│   │   │   └── PedidoWebController.php        # Controlador Web multipágina (Órdenes, Clientes, Reporte, Guía)
+│   │   ├── Middleware/
+│   │   │   └── SecurityHeadersMiddleware.php  # Cabeceras HTTP de seguridad (nosniff, SAMEORIGIN, XSS-Protection)
+│   │   └── Resources/
+│   │       ├── ClienteResource.php            # Serialización controlada y segura de la entidad Cliente
+│   │       └── PedidoResource.php             # Serialización controlada y segura de la entidad Pedido
 │   ├── Models/
 │   │   ├── Cliente.php                        # Modelo Eloquent de Clientes (relación hasMany con Pedido)
 │   │   ├── Pedido.php                         # Modelo Eloquent de Pedidos (estados y regla puedeSerModificadoPor)
@@ -95,7 +100,7 @@ Proyectouve/
 │       ├── ReporteVentasService.php           # Lógica de negocio del reporte mensual de ventas por cliente (DESC)
 │       └── TransportadoraService.php          # Cliente HTTP hacia POST https://tarifas.transportadora.test/v1/cotizar
 ├── bootstrap/
-│   └── app.php                                # Configuración de rutas Web, API (/api/*) y manejo de excepciones JSON
+│   └── app.php                                # Configuración de rutas Web, API, Middleware de seguridad y JSON
 ├── config/
 │   ├── database.php                           # Configuración de conexiones SQLite / MySQL
 │   └── services.php                           # Configuración de credenciales y URL de la API de Transportadora
@@ -111,10 +116,20 @@ Proyectouve/
 ├── resources/
 │   ├── js/
 │   │   └── components/
-│   │       └── PedidosReactApp.jsx            # Componente fuente en React 18 que consume GET /api/pedidos
+│   │       └── PedidosReactApp.jsx            # Componente fuente en React 18 para el Tablero Dinámico
 │   └── views/
-│       └── pedidos/
-│           └── index.blade.php                # Interfaz corporativa principal (Flujo, CRUDs, Reporte y widget React)
+│       ├── layouts/
+│       │   └── app.blade.php                  # Layout corporativo compartido (barra de navegación y selector de perfil)
+│       ├── clientes/
+│       │   └── index.blade.php                # Sección 3: Directorio Maestro de Clientes (CRUD)
+│       ├── pedidos/
+│       │   ├── index.blade.php                # Sección 1: Gestión y Control de Órdenes de Pedido
+│       │   ├── crear.blade.php                # Sección 2: Formulario de Apertura de Nueva Orden
+│       │   ├── editar.blade.php               # Vista dedicada de Edición y Auditoría de Orden
+│       │   ├── monitor-react.blade.php        # Sección 5: Tablero Dinámico en Tiempo Real (React 18)
+│       │   └── guia.blade.php                 # Sección 6: Manual Operativo Paso a Paso y Matriz de Permisos
+│       └── reportes/
+│           └── ventas.blade.php               # Sección 4: Consolidado Mensual de Ventas por Cliente (Mayor a Menor)
 ├── routes/
 │   ├── api.php                                # Definición de endpoints REST bajo el prefijo /api
 │   └── web.php                                # Rutas de la aplicación web y acciones CRUD
