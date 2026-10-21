@@ -20,12 +20,7 @@ class PedidoWebController extends Controller
     ) {}
 
     /**
-     * Vista principal del módulo de pedidos:
-     * - Listado con filtro por estado (Requisito 2)
-     * - Formulario de creación y cambio de estado (Requisito 2)
-     * - Reporte mensual de ventas por cliente de mayor a menor (Requisito 4)
-     * - Gestión de rol Operador / Administrador (Requisito 6)
-     * - Integración con vista React consumiendo GET /api/pedidos (Requisito 7)
+     * Panel corporativo principal de gestión de pedidos, clientes y reportes.
      */
     public function index(Request $request): View
     {
@@ -43,7 +38,7 @@ class PedidoWebController extends Controller
         }
 
         $pedidos = $query->get();
-        $clientes = Cliente::orderBy('nombre')->get();
+        $clientes = Cliente::withCount('pedidos')->orderBy('nombre')->get();
         $reporteMensual = $this->reporteVentasService->obtenerVentasMesActual();
 
         $conteosEstados = [
@@ -60,6 +55,11 @@ class PedidoWebController extends Controller
             $pedidoEditar = Pedido::with('cliente')->find($request->query('editar'));
         }
 
+        $clienteEditar = null;
+        if ($request->filled('editar_cliente')) {
+            $clienteEditar = Cliente::find($request->query('editar_cliente'));
+        }
+
         return view('pedidos.index', [
             'pedidos' => $pedidos,
             'clientes' => $clientes,
@@ -69,11 +69,12 @@ class PedidoWebController extends Controller
             'mesActualNombre' => Carbon::now()->translatedFormat('F Y'),
             'esAdmin' => $esAdmin,
             'pedidoEditar' => $pedidoEditar,
+            'clienteEditar' => $clienteEditar,
         ]);
     }
 
     /**
-     * Crea un nuevo pedido desde el formulario web (Requisito 2).
+     * Registra una nueva orden de pedido.
      */
     public function store(Request $request): RedirectResponse
     {
@@ -103,7 +104,7 @@ class PedidoWebController extends Controller
             'notas' => $validated['notas'] ?? null,
         ]);
 
-        $mensaje = "Pedido #{$pedido->id} creado para {$cliente->nombre}.";
+        $mensaje = "Orden de pedido #{$pedido->id} registrada correctamente para {$cliente->nombre}.";
 
         if ($estado === Pedido::ESTADO_DESPACHADO) {
             $cotizacion = $this->transportadoraService->cotizarEnvio($pedido);
@@ -111,7 +112,7 @@ class PedidoWebController extends Controller
                 'costo_envio' => $cotizacion['costo_envio'],
                 'referencia_cotizacion' => $cotizacion['referencia_cotizacion'],
             ]);
-            $mensaje .= ' Costo de envío calculado: $' . number_format($cotizacion['costo_envio'], 2) . " ({$cotizacion['referencia_cotizacion']}).";
+            $mensaje .= ' Costo de envío asignado: $' . number_format($cotizacion['costo_envio'], 2) . " (Guía: {$cotizacion['referencia_cotizacion']}).";
         }
 
         return redirect()
@@ -120,7 +121,7 @@ class PedidoWebController extends Controller
     }
 
     /**
-     * Cambia el estado de un pedido desde el listado web (Requisitos 2, 5 y 6).
+     * Actualiza el estado operativo de un pedido.
      */
     public function cambiarEstado(Request $request, Pedido $pedido): RedirectResponse
     {
@@ -129,7 +130,7 @@ class PedidoWebController extends Controller
         if (! $pedido->puedeSerModificadoPor($esAdmin)) {
             return redirect()
                 ->back()
-                ->with('error', "Bloqueo de seguridad (Requisito 6): El pedido #{$pedido->id} ya fue ENTREGADO y no puede modificarse por un operador. Active el modo Administrador para corregir este pedido.");
+                ->with('error', "Operación denegada: La orden #{$pedido->id} se encuentra cerrada en estado ENTREGADO y no admite modificaciones por personal operativo. Solicite intervención de un Administrador.");
         }
 
         $validated = $request->validate([
@@ -140,24 +141,23 @@ class PedidoWebController extends Controller
         $datosActualizar = ['estado' => $nuevoEstado];
         $mensajeExtra = '';
 
-        // Requisito 5: Al marcar como despachado, cotizar costo de envío en API de transportadora
         if ($nuevoEstado === Pedido::ESTADO_DESPACHADO) {
             $cotizacion = $this->transportadoraService->cotizarEnvio($pedido);
             $datosActualizar['costo_envio'] = $cotizacion['costo_envio'];
             $datosActualizar['referencia_cotizacion'] = $cotizacion['referencia_cotizacion'];
-            $mensajeExtra = ' | Costo de envío cotizado: $' . number_format($cotizacion['costo_envio'], 2)
-                . " (Ref: {$cotizacion['referencia_cotizacion']} — {$cotizacion['mensaje']})";
+            $mensajeExtra = ' — Tarifa de transporte liquidada: $' . number_format($cotizacion['costo_envio'], 2)
+                . " (Ref: {$cotizacion['referencia_cotizacion']})";
         }
 
         $pedido->update($datosActualizar);
 
         return redirect()
             ->back()
-            ->with('success', "Estado del pedido #{$pedido->id} actualizado a '" . strtoupper($nuevoEstado) . "'{$mensajeExtra}");
+            ->with('success', "Estado de la orden #{$pedido->id} actualizado a " . strtoupper($nuevoEstado) . "{$mensajeExtra}.");
     }
 
     /**
-     * Corrección integral de un pedido (Requisito 6: El administrador puede corregir cualquier pedido).
+     * Edición y auditoría integral de un pedido.
      */
     public function update(Request $request, Pedido $pedido): RedirectResponse
     {
@@ -166,7 +166,7 @@ class PedidoWebController extends Controller
         if (! $pedido->puedeSerModificadoPor($esAdmin)) {
             return redirect()
                 ->route('pedidos.index')
-                ->with('error', "No autorizado: El pedido #{$pedido->id} está entregado y solo el administrador puede corregirlo.");
+                ->with('error', "Acceso restringido: La orden #{$pedido->id} ya fue entregada y únicamente el perfil de Administrador puede editarla.");
         }
 
         $validated = $request->validate([
@@ -184,40 +184,127 @@ class PedidoWebController extends Controller
         $pedido->fill($validated);
 
         $mensajeExtra = '';
-        if ($validated['estado'] === Pedido::ESTADO_DESPACHADO && ($estadoAnterior !== Pedido::ESTADO_DESPACHADO || $pedido->costo_envio === null)) {
-            if (! $request->filled('costo_envio')) {
+        if ($validated['estado'] === Pedido::ESTADO_DESPACHADO && ($estadoAnterior !== Pedido::ESTADO_DESPACHADO || $pedido->costo_envio === null || $request->boolean('forzar_recotizacion'))) {
+            if (! $request->filled('costo_envio') || $request->boolean('forzar_recotizacion')) {
                 $cotizacion = $this->transportadoraService->cotizarEnvio($pedido);
                 $pedido->costo_envio = $cotizacion['costo_envio'];
                 $pedido->referencia_cotizacion = $cotizacion['referencia_cotizacion'];
-                $mensajeExtra = ' Se recotizó el envío automáticamente: $' . number_format($cotizacion['costo_envio'], 2) . '.';
+                $mensajeExtra = ' Se ejecutó recotización automática de transporte: $' . number_format($cotizacion['costo_envio'], 2) . '.';
             }
         }
 
         $pedido->save();
 
         return redirect()
-            ->route('pedidos.index')
-            ->with('success', "Pedido #{$pedido->id} corregido exitosamente por " . ($esAdmin ? 'el Administrador' : 'el Operador') . ".{$mensajeExtra}");
+            ->route('pedidos.index', ['estado' => $request->input('filtro_actual', 'todos')])
+            ->with('success', "Orden de pedido #{$pedido->id} actualizada correctamente.{$mensajeExtra}");
     }
 
     /**
-     * Alterna entre rol Operador y Administrador en la sesión para evaluar el Requisito 6.
+     * Elimina un pedido (exclusivo para el perfil Administrador).
+     */
+    public function destroy(Request $request, Pedido $pedido): RedirectResponse
+    {
+        if (! $this->esAdministrador($request)) {
+            return redirect()
+                ->back()
+                ->with('error', 'Permiso insuficiente: Solo el Administrador está autorizado para eliminar órdenes de pedido.');
+        }
+
+        $id = $pedido->id;
+        $pedido->delete();
+
+        return redirect()
+            ->route('pedidos.index')
+            ->with('success', "Orden de pedido #{$id} eliminada del sistema.");
+    }
+
+    /**
+     * Registra un nuevo cliente corporativo.
+     */
+    public function storeCliente(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'nombre' => ['required', 'string', 'max:150'],
+            'documento' => ['nullable', 'string', 'max:50', 'unique:clientes,documento'],
+            'email' => ['required', 'email', 'max:150', 'unique:clientes,email'],
+            'telefono' => ['nullable', 'string', 'max:50'],
+            'ciudad' => ['required', 'string', 'max:100'],
+            'direccion' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $cliente = Cliente::create($validated);
+
+        return redirect()
+            ->route('pedidos.index')
+            ->with('success', "Cliente corporativo '{$cliente->nombre}' registrado correctamente.");
+    }
+
+    /**
+     * Actualiza los datos de un cliente (Administrador).
+     */
+    public function updateCliente(Request $request, Cliente $cliente): RedirectResponse
+    {
+        if (! $this->esAdministrador($request)) {
+            return redirect()
+                ->back()
+                ->with('error', 'Solo el perfil de Administrador puede modificar el maestro de clientes.');
+        }
+
+        $validated = $request->validate([
+            'nombre' => ['required', 'string', 'max:150'],
+            'documento' => ['nullable', 'string', 'max:50', Rule::unique('clientes', 'documento')->ignore($cliente->id)],
+            'email' => ['required', 'email', 'max:150', Rule::unique('clientes', 'email')->ignore($cliente->id)],
+            'telefono' => ['nullable', 'string', 'max:50'],
+            'ciudad' => ['required', 'string', 'max:100'],
+            'direccion' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $cliente->update($validated);
+
+        return redirect()
+            ->route('pedidos.index')
+            ->with('success', "Información del cliente '{$cliente->nombre}' actualizada correctamente.");
+    }
+
+    /**
+     * Elimina un cliente del directorio (Administrador).
+     */
+    public function destroyCliente(Request $request, Cliente $cliente): RedirectResponse
+    {
+        if (! $this->esAdministrador($request)) {
+            return redirect()
+                ->back()
+                ->with('error', 'Solo el perfil de Administrador puede eliminar clientes.');
+        }
+
+        $nombre = $cliente->nombre;
+        $cliente->delete();
+
+        return redirect()
+            ->route('pedidos.index')
+            ->with('success', "Cliente '{$nombre}' eliminado correctamente.");
+    }
+
+    /**
+     * Cambia el perfil operativo activo mediante el menú desplegable (Empleado / Administrador).
      */
     public function cambiarRol(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'rol' => ['required', Rule::in(['operador', 'admin'])],
+            'rol' => ['required', Rule::in(['empleado', 'operador', 'admin'])],
         ]);
 
-        $request->session()->put('rol_activo', $validated['rol']);
+        $rolNormalizado = $validated['rol'] === 'admin' ? 'admin' : 'empleado';
+        $request->session()->put('rol_activo', $rolNormalizado);
 
-        $nombreRol = $validated['rol'] === 'admin'
-            ? 'Administrador (puede corregir cualquier pedido, incluidos entregados)'
-            : 'Operador Logístico (los pedidos entregados están bloqueados)';
+        $etiqueta = $rolNormalizado === 'admin'
+            ? 'Administrador General (Permisos de edición, recotización y auditoría habilitados)'
+            : 'Empleado Operativo (Restricción de seguridad activa sobre órdenes entregadas)';
 
         return redirect()
             ->back()
-            ->with('success', "Rol activo cambiado a: {$nombreRol}.");
+            ->with('success', "Sesión operativa cambiada a: {$etiqueta}.");
     }
 
     private function esAdministrador(Request $request): bool
@@ -230,6 +317,6 @@ class PedidoWebController extends Controller
             return true;
         }
 
-        return $request->session()->get('rol_activo', 'operador') === 'admin';
+        return $request->session()->get('rol_activo', 'empleado') === 'admin';
     }
 }

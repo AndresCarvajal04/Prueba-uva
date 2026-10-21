@@ -221,4 +221,44 @@ class ModuloPedidosTest extends TestCase
             ->assertJsonPath('data.estado', 'pendiente')
             ->assertJsonPath('data.total', '980000.00');
     }
+
+    /**
+     * Verifica el cambio de perfil mediante el menú desplegable (Empleado / Administrador)
+     * y las operaciones CRUD de administración (edición de cliente y eliminación de orden).
+     */
+    public function test_administrador_puede_cambiar_perfil_en_menu_desplegable_y_ejecutar_crud_completo(): void
+    {
+        $pedido = Pedido::create([
+            'cliente_id' => $this->clienteA->id,
+            'fecha' => Carbon::now()->toDateString(),
+            'estado' => Pedido::ESTADO_ENTREGADO,
+            'total' => 620000,
+            'peso_kg' => 4.0,
+            'ciudad_destino' => 'Medellín',
+        ]);
+
+        // Cambiar a perfil Administrador General desde el menú desplegable
+        $this->post('/cambiar-rol', ['rol' => 'admin'])
+            ->assertRedirect();
+
+        $this->assertEquals('admin', session('rol_activo'));
+
+        // Editar cliente como Administrador
+        $this->put("/clientes/{$this->clienteA->id}", [
+            'nombre' => 'Cliente Alfa Corporativo S.A.S.',
+            'documento' => '900111222-1',
+            'email' => 'alfa@test.co',
+            'telefono' => '3009998877',
+            'ciudad' => 'Bogotá D.C.',
+            'direccion' => 'Av. El Dorado # 68-90',
+        ])->assertRedirect();
+
+        $this->assertEquals('Cliente Alfa Corporativo S.A.S.', $this->clienteA->fresh()->nombre);
+
+        // Eliminar pedido entregado como Administrador
+        $this->delete("/pedidos/{$pedido->id}")
+            ->assertRedirect();
+
+        $this->assertDatabaseMissing('pedidos', ['id' => $pedido->id]);
+    }
 }

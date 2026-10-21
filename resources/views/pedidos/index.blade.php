@@ -4,84 +4,184 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>UVA3 Logística — Módulo de Pedidos y Despachos Nacionales</title>
+    <title>UVA3 Logística Nacional — Sistema Corporativo de Gestión de Pedidos y Despachos</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React 18 para el Requisito 7 (Listado en React consumiendo GET /api/pedidos?estado=...) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+    </style>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen">
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col">
 
-    <!-- Barra Superior: Identidad + Selector de Rol (Requisito 6) -->
-    <header class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-30 shadow-md">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-lg shadow-inner">
-                    U3
+    <!-- ENCABEZADO CORPORATIVO PRINCIPAL -->
+    <header class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3.5">
+                <div class="w-9 h-9 rounded-md bg-blue-700 flex items-center justify-center font-bold text-sm tracking-wider border border-blue-500/40">
+                    UVA3
                 </div>
-                <div>
-                    <div class="flex items-center gap-2">
-                        <h1 class="font-bold text-lg tracking-tight">UVA3 Logística Nacional</h1>
-                        <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 font-medium">
-                            Módulo de Pedidos
-                        </span>
-                    </div>
-                    <p class="text-xs text-slate-400">
-                        Control de despachos, cotización de transportadora y ventas mensuales por cliente
+                <div class="border-l border-slate-700 pl-3.5">
+                    <h1 class="font-semibold text-sm sm:text-base text-white tracking-tight leading-tight">
+                        Sistema de Gestión Logística y Despachos Nacionales
+                    </h1>
+                    <p class="text-[11px] text-slate-400">
+                        Control de órdenes, liquidación automática de fletes y consolidado comercial
                     </p>
                 </div>
             </div>
 
-            <!-- Selector de Rol para validar Requisito 6 -->
-            <div class="flex flex-wrap items-center gap-3">
+            <!-- CONTROLES DE SESIÓN Y MENÚ DESPLEGABLE DE PERFIL (ADMINISTRADOR / EMPLEADO) -->
+            <div class="flex items-center gap-4">
                 <a href="/api/pedidos?estado=pendiente" target="_blank"
-                   class="text-xs font-mono bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 px-3 py-2 rounded-lg transition flex items-center gap-1.5">
-                    <span>GET /api/pedidos?estado=pendiente</span>
-                    <span>↗</span>
+                   class="hidden md:inline-flex items-center gap-1.5 text-xs font-mono text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-md transition">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    <span>API JSON</span>
                 </a>
 
-                <form action="{{ route('pedidos.cambiar-rol') }}" method="POST" class="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700">
+                <form action="{{ route('pedidos.cambiar-rol') }}" method="POST" id="form-selector-perfil" class="flex items-center gap-2.5 bg-slate-800/90 border border-slate-700 px-3 py-1.5 rounded-md">
                     @csrf
-                    <input type="hidden" name="rol" value="{{ $esAdmin ? 'operador' : 'admin' }}">
-                    <div class="px-3 py-1 text-xs">
-                        <span class="text-slate-400 block text-[10px] uppercase tracking-wider">Rol Activo (Req. 6)</span>
-                        @if($esAdmin)
-                            <span class="font-bold text-amber-400">★ Administrador (Corrige todo)</span>
-                        @else
-                            <span class="font-semibold text-sky-300">Operador (Entregados bloqueados)</span>
-                        @endif
-                    </div>
-                    <button type="submit"
-                            class="text-xs font-semibold px-3 py-1.5 rounded-lg transition {{ $esAdmin ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-amber-500 hover:bg-amber-400 text-slate-950' }}">
-                        Cambiar a {{ $esAdmin ? 'Operador' : 'Administrador' }}
-                    </button>
+                    <label for="select-perfil-activo" class="text-[11px] uppercase tracking-wider font-semibold text-slate-400 whitespace-nowrap">
+                        Perfil Activo:
+                    </label>
+                    <select name="rol" id="select-perfil-activo" onchange="this.form.submit()"
+                            class="bg-slate-900 text-xs font-semibold rounded px-2.5 py-1 border focus:outline-none cursor-pointer {{ $esAdmin ? 'text-amber-300 border-amber-500/50' : 'text-sky-300 border-slate-600' }}">
+                        <option value="empleado" @selected(!$esAdmin)>Empleado Operativo</option>
+                        <option value="admin" @selected($esAdmin)>Administrador General</option>
+                    </select>
                 </form>
+            </div>
+        </div>
+
+        <!-- BARRA DE ESTADO DEL PERFIL ACTIVO -->
+        <div class="{{ $esAdmin ? 'bg-amber-950/90 border-t border-amber-800/60 text-amber-100' : 'bg-slate-800/90 border-t border-slate-700/80 text-slate-300' }}">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div class="flex items-center gap-2">
+                    @if($esAdmin)
+                        <span class="inline-block w-2 h-2 rounded-full bg-amber-400"></span>
+                        <span>
+                            <strong>Modo Administrador General activo:</strong> Tiene acceso total al CRUD de órdenes y clientes. Puede editar, recotizar o eliminar cualquier pedido (incluidos los pedidos cerrados en estado <em>Entregado</em>).
+                        </span>
+                    @else
+                        <span class="inline-block w-2 h-2 rounded-full bg-sky-400"></span>
+                        <span>
+                            <strong>Modo Empleado Operativo activo:</strong> Puede registrar pedidos y avanzar estados de despacho. Las órdenes en estado <em>Entregado</em> se encuentran bloqueadas por seguridad.
+                        </span>
+                    @endif
+                </div>
+                <div class="flex items-center gap-4 text-[11px]">
+                    <a href="#seccion-flujo" class="hover:underline">Flujo Operativo</a>
+                    <a href="#seccion-ordenes" class="hover:underline">Órdenes de Pedido</a>
+                    <a href="#seccion-clientes" class="hover:underline">Maestro de Clientes</a>
+                    <a href="#seccion-reporte" class="hover:underline">Consolidado Mensual</a>
+                </div>
             </div>
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 flex-1 w-full">
 
-        <!-- Alertas Flash y Errores de Validación -->
+        <!-- FLUJO OPERATIVO PASO A PASO -->
+        <section id="seccion-flujo" class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
+            <div class="flex flex-wrap items-center justify-between gap-2 pb-4 mb-4 border-b border-slate-100">
+                <div>
+                    <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wide">
+                        Flujo de Operación del Sistema Logístico
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        Siga esta secuencia de cuatro etapas para operar el ciclo completo de un pedido desde su recepción hasta el cierre contable.
+                    </p>
+                </div>
+                <span class="text-xs font-medium px-2.5 py-1 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                    Perfil en sesión: <strong>{{ $esAdmin ? 'Administrador General' : 'Empleado Operativo' }}</strong>
+                </span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Paso 1 -->
+                <a href="#seccion-clientes" class="group block p-3.5 rounded-lg border border-slate-200 bg-slate-50/60 hover:bg-white hover:border-blue-600 transition">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
+                            Paso 1
+                        </span>
+                        <span class="text-xs text-slate-400 group-hover:text-blue-600 font-medium">Ir a Clientes →</span>
+                    </div>
+                    <h3 class="text-xs font-bold text-slate-900">Verificación de Cliente</h3>
+                    <p class="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                        Seleccione un cliente activo o regístrelo en el directorio con su NIT y ciudad principal de destino.
+                    </p>
+                </a>
+
+                <!-- Paso 2 -->
+                <a href="#formulario-nuevo-pedido" class="group block p-3.5 rounded-lg border border-slate-200 bg-slate-50/60 hover:bg-white hover:border-blue-600 transition">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
+                            Paso 2
+                        </span>
+                        <span class="text-xs text-slate-400 group-hover:text-blue-600 font-medium">Crear Orden →</span>
+                    </div>
+                    <h3 class="text-xs font-bold text-slate-900">Registro de Orden de Pedido</h3>
+                    <p class="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                        Ingrese el valor comercial, peso en kilogramos y ciudad de entrega. La orden inicia en estado <strong>Pendiente</strong>.
+                    </p>
+                </a>
+
+                <!-- Paso 3 -->
+                <a href="#seccion-ordenes" class="group block p-3.5 rounded-lg border border-slate-200 bg-slate-50/60 hover:bg-white hover:border-blue-600 transition">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
+                            Paso 3
+                        </span>
+                        <span class="text-xs text-slate-400 group-hover:text-blue-600 font-medium">Gestionar Despacho →</span>
+                    </div>
+                    <h3 class="text-xs font-bold text-slate-900">Despacho y Cotización de Flete</h3>
+                    <p class="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                        Al cambiar el estado a <strong>Despachado</strong>, el sistema consulta la API de la transportadora y liquida el costo de envío.
+                    </p>
+                </a>
+
+                <!-- Paso 4 -->
+                <a href="#seccion-reporte" class="group block p-3.5 rounded-lg border border-slate-200 bg-slate-50/60 hover:bg-white hover:border-blue-600 transition">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
+                            Paso 4
+                        </span>
+                        <span class="text-xs text-slate-400 group-hover:text-blue-600 font-medium">Ver Consolidado →</span>
+                    </div>
+                    <h3 class="text-xs font-bold text-slate-900">Entrega, Auditoría y Reporte</h3>
+                    <p class="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                        Al marcar <strong>Entregado</strong> el pedido queda cerrado para empleados. El <strong>Administrador</strong> puede auditar o editar cualquier orden.
+                    </p>
+                </a>
+            </div>
+        </section>
+
+        <!-- NOTIFICACIONES DEL SISTEMA -->
         @if(session('success'))
-            <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-start justify-between gap-4 shadow-sm">
-                <div class="text-sm font-medium">
-                    <span class="font-bold text-emerald-700">✓ Operación exitosa:</span> {{ session('success') }}
+            <div class="p-4 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-950 flex items-center justify-between text-xs font-medium shadow-sm">
+                <div>
+                    <strong class="font-bold uppercase tracking-wide text-emerald-800 mr-1">Confirmación:</strong>
+                    {{ session('success') }}
                 </div>
             </div>
         @endif
 
         @if(session('error'))
-            <div class="p-4 rounded-xl bg-red-50 border border-red-200 text-red-900 flex items-start justify-between gap-4 shadow-sm">
-                <div class="text-sm font-medium">
-                    <span class="font-bold text-red-700">⚠ Acción restringida:</span> {{ session('error') }}
+            <div class="p-4 rounded-lg bg-red-50 border border-red-300 text-red-950 flex items-center justify-between text-xs font-medium shadow-sm">
+                <div>
+                    <strong class="font-bold uppercase tracking-wide text-red-800 mr-1">Restricción de Seguridad:</strong>
+                    {{ session('error') }}
                 </div>
             </div>
         @endif
 
         @if($errors->any())
-            <div class="p-4 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm space-y-1">
-                <div class="font-bold">Por favor corrige los siguientes errores en el formulario:</div>
+            <div class="p-4 rounded-lg bg-red-50 border border-red-300 text-red-900 text-xs space-y-1">
+                <div class="font-bold uppercase tracking-wide">Verifique los datos ingresados:</div>
                 <ul class="list-disc list-inside">
                     @foreach($errors->all() as $err)
                         <li>{{ $err }}</li>
@@ -90,68 +190,74 @@
             </div>
         @endif
 
-        <!-- Tarjetas de Resumen (KPIs) -->
+        <!-- INDICADORES EJECUTIVOS (KPIs) -->
         <section class="grid grid-cols-2 sm:grid-cols-5 gap-4">
-            <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
-                <span class="text-xs font-medium text-slate-500 uppercase">Total Pedidos</span>
-                <p class="text-2xl font-bold text-slate-900 mt-1">{{ $conteosEstados['todos'] }}</p>
-                <span class="text-[11px] text-slate-400">Histórico registrado</span>
+            <div class="bg-white rounded-lg p-4 border border-slate-200 shadow-sm">
+                <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Órdenes Registradas</span>
+                <p class="text-2xl font-bold text-slate-900 mt-1 tabular-nums">{{ $conteosEstados['todos'] }}</p>
+                <span class="text-[11px] text-slate-400">Total en base de datos</span>
             </div>
-            <div class="bg-amber-50/70 rounded-xl p-4 border border-amber-200 shadow-sm">
-                <span class="text-xs font-semibold text-amber-800 uppercase">Pendientes</span>
-                <p class="text-2xl font-bold text-amber-700 mt-1">{{ $conteosEstados['pendiente'] }}</p>
-                <span class="text-[11px] text-amber-700/80">Por despachar y cotizar</span>
+            <div class="bg-white rounded-lg p-4 border border-slate-200 border-l-4 border-l-amber-500 shadow-sm">
+                <span class="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">En Alistamiento</span>
+                <p class="text-2xl font-bold text-slate-900 mt-1 tabular-nums">{{ $conteosEstados['pendiente'] }}</p>
+                <span class="text-[11px] text-amber-700 font-medium">Estado: Pendiente</span>
             </div>
-            <div class="bg-sky-50/70 rounded-xl p-4 border border-sky-200 shadow-sm">
-                <span class="text-xs font-semibold text-sky-800 uppercase">Despachados</span>
-                <p class="text-2xl font-bold text-sky-700 mt-1">{{ $conteosEstados['despachado'] }}</p>
-                <span class="text-[11px] text-sky-700/80">Con flete cotizado en API</span>
+            <div class="bg-white rounded-lg p-4 border border-slate-200 border-l-4 border-l-blue-600 shadow-sm">
+                <span class="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">En Tránsito Nacional</span>
+                <p class="text-2xl font-bold text-slate-900 mt-1 tabular-nums">{{ $conteosEstados['despachado'] }}</p>
+                <span class="text-[11px] text-blue-700 font-medium">Estado: Despachado</span>
             </div>
-            <div class="bg-emerald-50/70 rounded-xl p-4 border border-emerald-200 shadow-sm">
-                <span class="text-xs font-semibold text-emerald-800 uppercase">Entregados</span>
-                <p class="text-2xl font-bold text-emerald-700 mt-1">{{ $conteosEstados['entregado'] }}</p>
-                <span class="text-[11px] text-emerald-700/80">Inmutables para operador</span>
+            <div class="bg-white rounded-lg p-4 border border-slate-200 border-l-4 border-l-emerald-600 shadow-sm">
+                <span class="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">Órdenes Cerradas</span>
+                <p class="text-2xl font-bold text-slate-900 mt-1 tabular-nums">{{ $conteosEstados['entregado'] }}</p>
+                <span class="text-[11px] text-emerald-700 font-medium">Estado: Entregado</span>
             </div>
-            <div class="col-span-2 sm:col-span-1 bg-indigo-950 text-white rounded-xl p-4 shadow-sm">
-                <span class="text-xs font-semibold text-indigo-300 uppercase">Ventas Mes Actual</span>
-                <p class="text-xl font-bold text-white mt-1">
+            <div class="col-span-2 sm:col-span-1 bg-slate-900 text-white rounded-lg p-4 border border-slate-800 shadow-sm">
+                <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Facturación del Mes</span>
+                <p class="text-xl font-bold text-white mt-1 tabular-nums">
                     ${{ number_format($reporteMensual->sum('total_vendido'), 0, ',', '.') }}
                 </p>
-                <span class="text-[11px] text-indigo-300 capitalize">{{ $mesActualNombre }}</span>
+                <span class="text-[11px] text-slate-400 capitalize">{{ $mesActualNombre }}</span>
             </div>
         </section>
 
-        <!-- Modal / Panel de Corrección de Pedido (Requisito 6) -->
+        <!-- PANEL DE EDICIÓN Y AUDITORÍA CRUD DE ORDEN (ADMINISTRADOR / EDICIÓN AUTORIZADA) -->
         @if($pedidoEditar)
-            <section class="bg-amber-50 border-2 border-amber-400 rounded-2xl p-6 shadow-md">
-                <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <section id="panel-edicion-orden" class="bg-white border-2 border-blue-700 rounded-lg p-6 shadow-md">
+                <div class="flex flex-wrap items-center justify-between gap-2 pb-4 mb-5 border-b border-slate-200">
                     <div>
-                        <span class="text-xs font-bold uppercase tracking-wider text-amber-800 bg-amber-200 px-2.5 py-0.5 rounded-full">
-                            Requisito 6 — Corrección de Pedido #{{ $pedidoEditar->id }}
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-blue-800 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded">
+                            Módulo de Edición y Auditoría de Orden #{{ $pedidoEditar->id }}
                         </span>
-                        <h2 class="text-lg font-bold text-slate-900 mt-1">
-                            Corrigiendo Pedido de {{ $pedidoEditar->cliente?->nombre }}
+                        <h2 class="text-base font-bold text-slate-900 mt-1.5">
+                            Modificar Orden de Pedido — {{ $pedidoEditar->cliente?->nombre }}
                         </h2>
+                        <p class="text-xs text-slate-500">
+                            Actualice los datos comerciales, logísticos o el estado de la orden.
+                        </p>
                     </div>
                     <a href="{{ route('pedidos.index', ['estado' => $estadoFiltro]) }}"
-                       class="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white px-3 py-1.5 rounded-lg border border-slate-300">
-                        ✕ Cancelar edición
+                       class="text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-md border border-slate-300">
+                        Cerrar Editor
                     </a>
                 </div>
 
                 @if($pedidoEditar->estaEntregado() && !$esAdmin)
-                    <div class="p-4 bg-red-100 border border-red-300 text-red-800 rounded-xl text-sm">
-                        Este pedido se encuentra en estado <strong>ENTREGADO</strong> y no puede ser modificado con el rol de Operador.
-                        Usa el botón superior para cambiar a <strong>Administrador</strong> y habilitar su corrección.
+                    <div class="p-4 bg-red-50 border border-red-200 text-red-900 rounded-md text-xs flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                            Esta orden se encuentra cerrada en estado <strong>ENTREGADO</strong>. El perfil de <strong>Empleado Operativo</strong> no tiene permisos para modificar órdenes entregadas.
+                            Seleccione <strong>Administrador General</strong> en el menú desplegable superior para habilitar la edición.
+                        </div>
                     </div>
                 @else
                     <form action="{{ route('pedidos.update', $pedidoEditar) }}" method="POST" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         @csrf
                         @method('PUT')
+                        <input type="hidden" name="filtro_actual" value="{{ $estadoFiltro }}">
 
                         <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">Cliente</label>
-                            <select name="cliente_id" required class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Cliente Titular</label>
+                            <select name="cliente_id" required class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs">
                                 @foreach($clientes as $cliente)
                                     <option value="{{ $cliente->id }}" @selected($pedidoEditar->cliente_id === $cliente->id)>
                                         {{ $cliente->nombre }} ({{ $cliente->ciudad }})
@@ -161,15 +267,15 @@
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">Fecha del Pedido</label>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Fecha de Orden</label>
                             <input type="date" name="fecha" required
                                    value="{{ $pedidoEditar->fecha?->format('Y-m-d') }}"
-                                   class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                                   class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs">
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">Estado</label>
-                            <select name="estado" required class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Estado Operativo</label>
+                            <select name="estado" required class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-semibold">
                                 @foreach(\App\Models\Pedido::ESTADOS as $est)
                                     <option value="{{ $est }}" @selected($pedidoEditar->estado === $est)>
                                         {{ ucfirst($est) }}
@@ -179,82 +285,93 @@
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">Valor Total Venta ($)</label>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Valor Comercial ($)</label>
                             <input type="number" step="0.01" min="0" name="total" required
                                    value="{{ $pedidoEditar->total }}"
-                                   class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                                   class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs">
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">Peso Total (kg)</label>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Peso Bruto (kg)</label>
                             <input type="number" step="0.1" min="0.1" name="peso_kg" required
                                    value="{{ $pedidoEditar->peso_kg }}"
-                                   class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                                   class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs">
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">Ciudad Destino</label>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Ciudad de Destino</label>
                             <input type="text" name="ciudad_destino" required
                                    value="{{ $pedidoEditar->ciudad_destino }}"
-                                   class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                                   class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs">
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">Costo Envío ($) (Vacío = Recotizar)</label>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Costo de Envío ($)</label>
                             <input type="number" step="0.01" min="0" name="costo_envio"
                                    value="{{ $pedidoEditar->costo_envio }}"
-                                   placeholder="Auto-cotizar si es despachado"
-                                   class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                                   placeholder="Dejar vacío para cotizar automáticamente"
+                                   class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs">
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">Notas / Observaciones</label>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Observaciones de Despacho</label>
                             <input type="text" name="notas"
                                    value="{{ $pedidoEditar->notas }}"
-                                   class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                                   class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs">
                         </div>
 
-                        <div class="sm:col-span-2 lg:col-span-4 flex justify-end gap-3 pt-2">
-                            <button type="submit" class="bg-amber-600 hover:bg-amber-500 text-white font-semibold px-5 py-2 rounded-lg text-sm shadow-sm">
-                                Guardar Corrección del Pedido #{{ $pedidoEditar->id }}
-                            </button>
+                        <div class="sm:col-span-2 lg:col-span-4 flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-slate-100">
+                            <label class="inline-flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+                                <input type="checkbox" name="forzar_recotizacion" value="1" class="rounded border-slate-300">
+                                <span>Recalcular tarifa automáticamente con la transportadora si el estado es <strong>Despachado</strong></span>
+                            </label>
+
+                            <div class="flex items-center gap-2">
+                                <a href="{{ route('pedidos.index', ['estado' => $estadoFiltro]) }}"
+                                   class="px-4 py-2 rounded-md border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                                    Cancelar
+                                </a>
+                                <button type="submit" class="bg-blue-700 hover:bg-blue-600 text-white font-semibold px-5 py-2 rounded-md text-xs shadow-sm">
+                                    Guardar Cambios en la Orden #{{ $pedidoEditar->id }}
+                                </button>
+                            </div>
                         </div>
                     </form>
                 @endif
             </section>
         @endif
 
-        <!-- Layout Principal: Izquierda (Listado y Filtro + React) | Derecha (Crear Pedido + Reporte Mes Actual) -->
+        <!-- CUERPO CENTRAL: IZQUIERDA (GESTIÓN DE ÓRDENES Y CONSOLA API) | DERECHA (CREACIÓN Y REPORTE MENSUAL) -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-            <!-- Columna Principal (8 cols): Listado de Pedidos (Req 2, 5, 6) + Pestaña React (Req 7) -->
+            <!-- COLUMNA PRINCIPAL (8 COLUMNAS) -->
             <div class="lg:col-span-8 space-y-6">
 
-                <!-- Tarjeta: Listado de Pedidos con Filtro por Estado -->
-                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <!-- TABLA DE ÓRDENES DE PEDIDO -->
+                <section id="seccion-ordenes" class="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
                     <div class="p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
                         <div>
-                            <h2 class="text-base font-bold text-slate-900">
-                                Listado de Pedidos Nacionales
+                            <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wide">
+                                Registro y Control de Órdenes de Pedido
                             </h2>
-                            <p class="text-xs text-slate-500">
-                                Filtra por estado o cambia el estado de un pedido. Al pasar a <span class="font-semibold text-sky-700">despachado</span> se cotiza automáticamente el envío en <code class="bg-slate-100 px-1 rounded">POST /v1/cotizar</code>.
+                            <p class="text-xs text-slate-500 mt-0.5">
+                                Gestione el estado de cada despacho. Al seleccionar el estado <strong>Despachado</strong> se liquida automáticamente el flete con la transportadora.
                             </p>
                         </div>
 
-                        <!-- Filtro por Estado (Requisito 2) -->
-                        <div class="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+                        <!-- FILTROS POR ESTADO -->
+                        <div class="flex flex-wrap items-center gap-1 bg-slate-100 p-1 rounded-md border border-slate-200">
                             @php
                                 $filtros = [
-                                    'todos' => 'Todos (' . $conteosEstados['todos'] . ')',
+                                    'todos' => 'Todas (' . $conteosEstados['todos'] . ')',
                                     'pendiente' => 'Pendientes (' . $conteosEstados['pendiente'] . ')',
-                                    'despachado' => 'Despachados (' . $conteosEstados['despachado'] . ')',
-                                    'entregado' => 'Entregados (' . $conteosEstados['entregado'] . ')',
+                                    'despachado' => 'Despachadas (' . $conteosEstados['despachado'] . ')',
+                                    'entregado' => 'Entregadas (' . $conteosEstados['entregado'] . ')',
                                 ];
                             @endphp
                             @foreach($filtros as $clave => $etiqueta)
                                 <a href="{{ route('pedidos.index', ['estado' => $clave]) }}"
-                                   class="px-3 py-1.5 rounded-lg text-xs font-semibold transition {{ $estadoFiltro === $clave ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-white/60' }}">
+                                   class="px-3 py-1.5 rounded text-xs font-semibold transition {{ $estadoFiltro === $clave ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-white' }}">
                                     {{ $etiqueta }}
                                 </a>
                             @endforeach
@@ -262,37 +379,37 @@
                     </div>
 
                     <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-slate-200 text-sm">
-                            <thead class="bg-slate-50 text-xs uppercase text-slate-500 font-semibold">
+                        <table class="min-w-full divide-y divide-slate-200 text-xs">
+                            <thead class="bg-slate-50 text-slate-600 uppercase font-semibold tracking-wider">
                                 <tr>
-                                    <th class="px-4 py-3 text-left">Pedido / Fecha</th>
-                                    <th class="px-4 py-3 text-left">Cliente / Destino</th>
-                                    <th class="px-4 py-3 text-right">Venta Total</th>
-                                    <th class="px-4 py-3 text-right">Costo Envío (Req. 5)</th>
-                                    <th class="px-4 py-3 text-center">Estado</th>
-                                    <th class="px-4 py-3 text-right">Cambiar Estado / Corregir</th>
+                                    <th class="px-4 py-3 text-left">Orden / Fecha</th>
+                                    <th class="px-4 py-3 text-left">Cliente / Ruta</th>
+                                    <th class="px-4 py-3 text-right">Valor Venta</th>
+                                    <th class="px-4 py-3 text-right">Flete Liquidado</th>
+                                    <th class="px-4 py-3 text-center">Estado Actual</th>
+                                    <th class="px-4 py-3 text-right">Operación / CRUD</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-slate-100">
+                            <tbody class="divide-y divide-slate-200">
                                 @forelse($pedidos as $pedido)
                                     @php
                                         $bloqueado = $pedido->estaEntregado() && !$esAdmin;
                                         $badgeClasses = match($pedido->estado) {
-                                            'pendiente' => 'bg-amber-100 text-amber-800 border-amber-200',
-                                            'despachado' => 'bg-sky-100 text-sky-800 border-sky-200',
-                                            'entregado' => 'bg-emerald-100 text-emerald-800 border-emerald-200',
-                                            default => 'bg-slate-100 text-slate-700',
+                                            'pendiente' => 'bg-amber-50 text-amber-800 border-amber-300',
+                                            'despachado' => 'bg-blue-50 text-blue-800 border-blue-300',
+                                            'entregado' => 'bg-emerald-50 text-emerald-800 border-emerald-300',
+                                            default => 'bg-slate-100 text-slate-700 border-slate-300',
                                         };
                                     @endphp
-                                    <tr class="hover:bg-slate-50/80 transition">
+                                    <tr class="hover:bg-slate-50/90 transition">
                                         <td class="px-4 py-3.5 whitespace-nowrap">
-                                            <div class="font-bold text-slate-900">#{{ $pedido->id }}</div>
-                                            <div class="text-xs text-slate-500">{{ $pedido->fecha?->format('Y-m-d') }}</div>
+                                            <div class="font-bold text-slate-900 tabular-nums">#{{ $pedido->id }}</div>
+                                            <div class="text-[11px] text-slate-500 tabular-nums">{{ $pedido->fecha?->format('Y-m-d') }}</div>
                                         </td>
                                         <td class="px-4 py-3.5">
                                             <div class="font-semibold text-slate-900">{{ $pedido->cliente?->nombre }}</div>
-                                            <div class="text-xs text-slate-500">
-                                                📍 {{ $pedido->ciudad_destino }} · ⚖️ {{ number_format((float)$pedido->peso_kg, 1) }} kg
+                                            <div class="text-[11px] text-slate-500">
+                                                Destino: <strong>{{ $pedido->ciudad_destino }}</strong> · Peso: {{ number_format((float)$pedido->peso_kg, 1) }} kg
                                             </div>
                                             @if($pedido->notas)
                                                 <div class="text-[11px] text-slate-400 truncate max-w-xs" title="{{ $pedido->notas }}">
@@ -300,48 +417,46 @@
                                                 </div>
                                             @endif
                                         </td>
-                                        <td class="px-4 py-3.5 text-right whitespace-nowrap font-bold text-slate-900">
+                                        <td class="px-4 py-3.5 text-right whitespace-nowrap font-bold text-slate-900 tabular-nums">
                                             ${{ number_format((float)$pedido->total, 2, ',', '.') }}
                                         </td>
-                                        <td class="px-4 py-3.5 text-right whitespace-nowrap">
+                                        <td class="px-4 py-3.5 text-right whitespace-nowrap tabular-nums">
                                             @if($pedido->costo_envio !== null)
-                                                <div class="font-semibold text-sky-700">
+                                                <div class="font-semibold text-slate-800">
                                                     ${{ number_format((float)$pedido->costo_envio, 2, ',', '.') }}
                                                 </div>
                                                 @if($pedido->referencia_cotizacion)
                                                     <div class="text-[10px] font-mono text-slate-400">
-                                                        {{ $pedido->referencia_cotizacion }}
+                                                        Guía: {{ $pedido->referencia_cotizacion }}
                                                     </div>
                                                 @endif
                                             @else
-                                                <span class="text-xs text-slate-400 italic">Sin cotizar</span>
+                                                <span class="text-[11px] text-slate-400">Pendiente despacho</span>
                                             @endif
                                         </td>
                                         <td class="px-4 py-3.5 text-center whitespace-nowrap">
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border uppercase {{ $badgeClasses }}">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded text-[11px] font-bold border uppercase tracking-wide {{ $badgeClasses }}">
                                                 {{ $pedido->estado }}
                                             </span>
-                                            @if($bloqueado)
-                                                <div class="text-[10px] text-slate-400 mt-1">🔒 Inmutable</div>
-                                            @endif
                                         </td>
                                         <td class="px-4 py-3.5 text-right whitespace-nowrap">
                                             @if($bloqueado)
                                                 <div class="inline-flex flex-col items-end">
-                                                    <span class="text-xs text-slate-400 font-medium bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
-                                                        Entregado (Bloqueado)
+                                                    <span class="text-[11px] text-slate-500 font-medium bg-slate-100 px-2.5 py-1 rounded border border-slate-200">
+                                                        Orden Cerrada (Inmutable)
                                                     </span>
-                                                    <span class="text-[10px] text-amber-600 mt-0.5">
-                                                        Requiere rol Administrador
+                                                    <span class="text-[10px] text-slate-400 mt-0.5">
+                                                        Edición reservada al Administrador
                                                     </span>
                                                 </div>
                                             @else
-                                                <div class="inline-flex items-center gap-1.5">
+                                                <div class="inline-flex items-center justify-end gap-1.5">
+                                                    <!-- Cambio rápido de estado -->
                                                     <form action="{{ route('pedidos.estado', $pedido) }}" method="POST" class="inline-flex items-center gap-1">
                                                         @csrf
                                                         @method('PATCH')
                                                         <select name="estado"
-                                                                class="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 focus:border-indigo-500 focus:outline-none">
+                                                                class="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 focus:border-blue-600 focus:outline-none">
                                                             @foreach(\App\Models\Pedido::ESTADOS as $est)
                                                                 <option value="{{ $est }}" @selected($pedido->estado === $est)>
                                                                     {{ ucfirst($est) }}
@@ -349,16 +464,31 @@
                                                             @endforeach
                                                         </select>
                                                         <button type="submit"
-                                                                class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-2.5 py-1 rounded-lg transition">
-                                                            Guardar
+                                                                class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-2.5 py-1 rounded transition">
+                                                            Aplicar
                                                         </button>
                                                     </form>
 
-                                                    <a href="{{ route('pedidos.index', ['estado' => $estadoFiltro, 'editar' => $pedido->id]) }}"
-                                                       title="Corregir pedido completo"
-                                                       class="text-xs font-semibold px-2.5 py-1 rounded-lg border {{ $esAdmin ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100' }}">
-                                                        ✎
+                                                    <!-- Botón Editar Orden (CRUD) -->
+                                                    <a href="{{ route('pedidos.index', ['estado' => $estadoFiltro, 'editar' => $pedido->id]) }}#panel-edicion-orden"
+                                                       class="text-xs font-semibold px-2.5 py-1 rounded border transition {{ $esAdmin ? 'bg-blue-50 border-blue-300 text-blue-800 hover:bg-blue-100' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100' }}">
+                                                        Editar
                                                     </a>
+
+                                                    <!-- Botón Eliminar Orden (Exclusivo Administrador) -->
+                                                    @if($esAdmin)
+                                                        <form action="{{ route('pedidos.destroy', $pedido) }}" method="POST"
+                                                              onsubmit="return confirm('¿Confirma la eliminación permanente de la orden #{{ $pedido->id }}?');"
+                                                              class="inline">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <button type="submit"
+                                                                    class="text-xs font-semibold px-2 py-1 rounded border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 transition"
+                                                                    title="Eliminar orden">
+                                                                Eliminar
+                                                            </button>
+                                                        </form>
+                                                    @endif
                                                 </div>
                                             @endif
                                         </td>
@@ -366,34 +496,164 @@
                                 @empty
                                     <tr>
                                         <td colspan="6" class="px-4 py-8 text-center text-slate-500">
-                                            No hay pedidos registrados con el estado seleccionado (<strong>{{ $estadoFiltro }}</strong>).
+                                            No existen órdenes registradas bajo el estado seleccionado (<strong>{{ $estadoFiltro }}</strong>).
                                         </td>
                                     </tr>
                                 @endforelse
                             </tbody>
                         </table>
                     </div>
-                </div>
+                </section>
 
-                <!-- Requisito 7 (Opcional - Suma puntos): Módulo en React consumiendo GET /api/pedidos?estado=... -->
-                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                <!-- MAESTRO DE CLIENTES Y CRUD CORPORATIVO -->
+                <section id="seccion-clientes" class="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                            <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wide">
+                                Directorio Maestro de Clientes Corporativos
+                            </h2>
+                            <p class="text-xs text-slate-500 mt-0.5">
+                                Clientes habilitados para despacho nacional. {{ $esAdmin ? 'Como Administrador puede registrar, editar o eliminar clientes.' : 'Seleccione el perfil Administrador para editar o eliminar registros del maestro.' }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Formulario de Edición o Creación de Cliente -->
+                    <div class="p-5 bg-slate-50 border-b border-slate-200">
+                        @if($clienteEditar && $esAdmin)
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-xs font-bold text-blue-800 uppercase">
+                                    Editando Cliente: {{ $clienteEditar->nombre }}
+                                </span>
+                                <a href="{{ route('pedidos.index', ['estado' => $estadoFiltro]) }}#seccion-clientes"
+                                   class="text-xs text-slate-600 hover:text-slate-900 underline">
+                                    Cancelar edición
+                                </a>
+                            </div>
+                            <form action="{{ route('clientes.update', $clienteEditar) }}" method="POST" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                @csrf
+                                @method('PUT')
+                                <input type="text" name="nombre" required value="{{ $clienteEditar->nombre }}" placeholder="Razón Social *"
+                                       class="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs">
+                                <input type="text" name="documento" value="{{ $clienteEditar->documento }}" placeholder="NIT / Documento"
+                                       class="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs">
+                                <input type="email" name="email" required value="{{ $clienteEditar->email }}" placeholder="Correo Electrónico *"
+                                       class="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs">
+                                <input type="text" name="telefono" value="{{ $clienteEditar->telefono }}" placeholder="Teléfono"
+                                       class="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs">
+                                <input type="text" name="ciudad" required value="{{ $clienteEditar->ciudad }}" placeholder="Ciudad Principal *"
+                                       class="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs">
+                                <div class="flex gap-2">
+                                    <input type="text" name="direccion" value="{{ $clienteEditar->direccion }}" placeholder="Dirección"
+                                           class="flex-1 rounded border border-slate-300 bg-white px-3 py-1.5 text-xs">
+                                    <button type="submit" class="bg-blue-700 hover:bg-blue-600 text-white font-semibold px-4 py-1.5 rounded text-xs whitespace-nowrap">
+                                        Actualizar
+                                    </button>
+                                </div>
+                            </form>
+                        @else
+                            <div class="text-xs font-semibold text-slate-700 mb-2">
+                                Registrar Nuevo Cliente en el Directorio
+                            </div>
+                            <form action="{{ route('clientes.store') }}" method="POST" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                @csrf
+                                <input type="text" name="nombre" required placeholder="Razón Social / Nombre *"
+                                       class="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs">
+                                <input type="text" name="documento" placeholder="NIT / Documento"
+                                       class="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs">
+                                <input type="email" name="email" required placeholder="Correo Corporativo *"
+                                       class="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs">
+                                <input type="text" name="telefono" placeholder="Teléfono de Contacto"
+                                       class="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs">
+                                <input type="text" name="ciudad" required placeholder="Ciudad Principal *"
+                                       class="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs">
+                                <div class="flex gap-2">
+                                    <input type="text" name="direccion" placeholder="Dirección Comercial"
+                                           class="flex-1 rounded border border-slate-300 bg-white px-3 py-1.5 text-xs">
+                                    <button type="submit" class="bg-slate-900 hover:bg-slate-800 text-white font-semibold px-4 py-1.5 rounded text-xs whitespace-nowrap">
+                                        + Agregar Cliente
+                                    </button>
+                                </div>
+                            </form>
+                        @endif
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-200 text-xs">
+                            <thead class="bg-slate-50 text-slate-600 uppercase font-semibold">
+                                <tr>
+                                    <th class="px-4 py-2.5 text-left">Razón Social / NIT</th>
+                                    <th class="px-4 py-2.5 text-left">Contacto</th>
+                                    <th class="px-4 py-2.5 text-left">Ciudad / Dirección</th>
+                                    <th class="px-4 py-2.5 text-center">Órdenes</th>
+                                    @if($esAdmin)
+                                        <th class="px-4 py-2.5 text-right">Gestión Administrador</th>
+                                    @endif
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-200">
+                                @foreach($clientes as $cli)
+                                    <tr class="hover:bg-slate-50">
+                                        <td class="px-4 py-2.5">
+                                            <div class="font-semibold text-slate-900">{{ $cli->nombre }}</div>
+                                            <div class="text-[11px] text-slate-500">{{ $cli->documento ?: 'Sin NIT' }}</div>
+                                        </td>
+                                        <td class="px-4 py-2.5">
+                                            <div class="text-slate-800">{{ $cli->email }}</div>
+                                            <div class="text-[11px] text-slate-500">{{ $cli->telefono }}</div>
+                                        </td>
+                                        <td class="px-4 py-2.5">
+                                            <div class="font-medium text-slate-800">{{ $cli->ciudad }}</div>
+                                            <div class="text-[11px] text-slate-500">{{ $cli->direccion }}</div>
+                                        </td>
+                                        <td class="px-4 py-2.5 text-center font-semibold tabular-nums">
+                                            {{ $cli->pedidos_count }}
+                                        </td>
+                                        @if($esAdmin)
+                                            <td class="px-4 py-2.5 text-right whitespace-nowrap">
+                                                <div class="inline-flex items-center gap-1.5">
+                                                    <a href="{{ route('pedidos.index', ['estado' => $estadoFiltro, 'editar_cliente' => $cli->id]) }}#seccion-clientes"
+                                                       class="px-2.5 py-1 rounded border border-blue-300 bg-blue-50 text-blue-800 hover:bg-blue-100 font-semibold">
+                                                        Editar
+                                                    </a>
+                                                    <form action="{{ route('clientes.destroy', $cli) }}" method="POST"
+                                                          onsubmit="return confirm('¿Confirma eliminar el cliente {{ $cli->nombre }} y sus órdenes asociadas?');"
+                                                          class="inline">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit"
+                                                                class="px-2.5 py-1 rounded border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 font-semibold">
+                                                            Eliminar
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </td>
+                                        @endif
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- CONSOLA INTERACTIVA EN REACT 18 (SINCRONIZACIÓN API REST) -->
+                <section class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
                     <div id="react-pedidos-root" data-admin="{{ $esAdmin ? '1' : '0' }}"></div>
-                </div>
+                </section>
 
             </div>
 
-            <!-- Columna Lateral (4 cols): Crear Pedido (Req 2) + Reporte Ventas del Mes (Req 4) -->
+            <!-- COLUMNA LATERAL (4 COLUMNAS): REGISTRO DE PEDIDO + CONSOLIDADO COMERCIAL DEL MES -->
             <div class="lg:col-span-4 space-y-6">
 
-                <!-- Tarjeta: Formulario para Crear un Pedido (Requisito 2) -->
-                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-                    <div class="mb-4">
-                        <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full">
-                            Requisito 2
-                        </span>
-                        <h2 class="text-base font-bold text-slate-900 mt-1">Registrar Nuevo Pedido</h2>
-                        <p class="text-xs text-slate-500">
-                            Crea un pedido para cualquier cliente de UVA3.
+                <!-- FORMULARIO CORPORATIVO PARA CREAR ORDEN DE PEDIDO -->
+                <section id="formulario-nuevo-pedido" class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
+                    <div class="pb-3 mb-4 border-b border-slate-100">
+                        <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wide">
+                            Nueva Orden de Pedido
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-0.5">
+                            Complete la información comercial y logística del despacho.
                         </p>
                     </div>
 
@@ -401,10 +661,10 @@
                         @csrf
 
                         <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">Cliente *</label>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Cliente Corporativo *</label>
                             <select name="cliente_id" id="select-cliente-crear" required
-                                    class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none">
-                                <option value="">Seleccione un cliente...</option>
+                                    class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs focus:border-blue-600 focus:outline-none">
+                                <option value="">Seleccione un cliente del directorio...</option>
                                 @foreach($clientes as $cliente)
                                     <option value="{{ $cliente->id }}"
                                             data-ciudad="{{ $cliente->ciudad }}"
@@ -417,16 +677,16 @@
 
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">Fecha *</label>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Fecha de Orden *</label>
                                 <input type="date" name="fecha" required
                                        value="{{ old('fecha', now()->format('Y-m-d')) }}"
-                                       class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                                       class="w-full rounded-md border border-slate-300 px-3 py-2 text-xs">
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Estado Inicial</label>
-                                <select name="estado" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                                <select name="estado" class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs">
                                     <option value="pendiente" @selected(old('estado') === 'pendiente')>Pendiente</option>
-                                    <option value="despachado" @selected(old('estado') === 'despachado')>Despachado (Cotizar ya)</option>
+                                    <option value="despachado" @selected(old('estado') === 'despachado')>Despachado (Liquidar flete)</option>
                                     <option value="entregado" @selected(old('estado') === 'entregado')>Entregado</option>
                                 </select>
                             </div>
@@ -438,101 +698,103 @@
                                 <input type="number" step="0.01" min="1" name="total" required
                                        placeholder="Ej. 1500000"
                                        value="{{ old('total') }}"
-                                       class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                                       class="w-full rounded-md border border-slate-300 px-3 py-2 text-xs">
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-slate-700 mb-1">Peso Carga (kg) *</label>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Peso Total (kg) *</label>
                                 <input type="number" step="0.1" min="0.1" name="peso_kg" required
                                        value="{{ old('peso_kg', '5.0') }}"
-                                       class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                                       class="w-full rounded-md border border-slate-300 px-3 py-2 text-xs">
                             </div>
                         </div>
 
                         <div>
                             <label class="block text-xs font-semibold text-slate-700 mb-1">Ciudad de Destino</label>
                             <input type="text" name="ciudad_destino" id="input-ciudad-crear"
-                                   placeholder="Se toma del cliente si se deja vacío"
+                                   placeholder="Se asigna automáticamente según el cliente"
                                    value="{{ old('ciudad_destino') }}"
-                                   class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                                   class="w-full rounded-md border border-slate-300 px-3 py-2 text-xs">
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-slate-700 mb-1">Notas de Despacho</label>
-                            <textarea name="notas" rows="2" placeholder="Instrucciones de entrega o contenido de carga..."
-                                      class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">{{ old('notas') }}</textarea>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Instrucciones / Notas Logísticas</label>
+                            <textarea name="notas" rows="2" placeholder="Detalle de mercancía, bodega de recepción o contacto..."
+                                      class="w-full rounded-md border border-slate-300 px-3 py-2 text-xs">{{ old('notas') }}</textarea>
                         </div>
 
                         <button type="submit"
-                                class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 px-4 rounded-xl text-sm shadow-sm transition">
-                            + Crear Pedido
+                                class="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2.5 px-4 rounded-md text-xs shadow-sm transition">
+                            Registrar Orden de Pedido
                         </button>
                     </form>
-                </div>
+                </section>
 
-                <!-- Tarjeta: Reporte Total Vendido por Cliente en el Mes Actual (Requisito 4) -->
-                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-                    <div class="flex items-center justify-between mb-3">
-                        <div>
-                            <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full">
-                                Requisito 4
-                            </span>
-                            <h2 class="text-base font-bold text-slate-900 mt-1">
-                                Ventas por Cliente — Mes Actual
-                            </h2>
-                            <p class="text-xs text-slate-500 capitalize">
-                                {{ $mesActualNombre }} · Ordenado de mayor a menor
-                            </p>
-                        </div>
+                <!-- REPORTE EJECUTIVO: VENTAS POR CLIENTE EN EL MES ACTUAL -->
+                <section id="seccion-reporte" class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
+                    <div class="pb-3 mb-4 border-b border-slate-100">
+                        <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wide">
+                            Ventas por Cliente — Mes Actual
+                        </h2>
+                        <p class="text-xs text-slate-500 capitalize mt-0.5">
+                            Consolidado comercial de {{ $mesActualNombre }} (Ordenado de mayor a menor facturación)
+                        </p>
                     </div>
 
-                    <div class="space-y-3 mt-4">
+                    <div class="space-y-3">
                         @forelse($reporteMensual as $item)
-                            <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                            <div class="p-3 rounded-md bg-slate-50 border border-slate-200">
                                 <div class="flex items-start justify-between gap-2">
                                     <div>
-                                        <span class="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold {{ $item->posicion === 1 ? 'bg-amber-400 text-slate-950' : 'bg-slate-200 text-slate-700' }}">
+                                        <span class="inline-flex items-center justify-center w-5 h-5 rounded text-[11px] font-bold {{ $item->posicion === 1 ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-700' }}">
                                             {{ $item->posicion }}
                                         </span>
-                                        <span class="font-semibold text-sm text-slate-900 ml-1">
+                                        <span class="font-semibold text-xs text-slate-900 ml-1">
                                             {{ $item->cliente_nombre }}
                                         </span>
                                         <div class="text-[11px] text-slate-500 ml-6">
-                                            {{ $item->cliente_ciudad }} · {{ $item->cantidad_pedidos }} {{ $item->cantidad_pedidos === 1 ? 'pedido' : 'pedidos' }} este mes
+                                            {{ $item->cliente_ciudad }} · {{ $item->cantidad_pedidos }} {{ $item->cantidad_pedidos === 1 ? 'orden' : 'órdenes' }} en el mes
                                         </div>
                                     </div>
-                                    <div class="text-right">
-                                        <div class="font-bold text-sm text-emerald-700">
+                                    <div class="text-right tabular-nums">
+                                        <div class="font-bold text-xs text-slate-900">
                                             ${{ number_format($item->total_vendido, 2, ',', '.') }}
                                         </div>
-                                        <div class="text-[10px] text-slate-400">
-                                            {{ $item->participacion_porcentaje }}% del mes
+                                        <div class="text-[10px] text-slate-500">
+                                            {{ $item->participacion_porcentaje }}% del total
                                         </div>
                                     </div>
                                 </div>
                                 <div class="w-full bg-slate-200 h-1.5 rounded-full mt-2 overflow-hidden">
-                                    <div class="bg-emerald-600 h-1.5 rounded-full" style="width: {{ min(100, $item->participacion_porcentaje) }}%"></div>
+                                    <div class="bg-blue-700 h-1.5 rounded-full" style="width: {{ min(100, $item->participacion_porcentaje) }}%"></div>
                                 </div>
                             </div>
                         @empty
                             <p class="text-xs text-slate-500 text-center py-4">
-                                No hay ventas registradas en el mes actual.
+                                No existen órdenes facturadas en el mes en curso.
                             </p>
                         @endforelse
                     </div>
 
-                    <div class="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between text-xs">
-                        <span class="font-semibold text-slate-600">Total Vendido ({{ ucfirst($mesActualNombre) }}):</span>
+                    <div class="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between text-xs tabular-nums">
+                        <span class="font-semibold text-slate-600">Total Facturado ({{ ucfirst($mesActualNombre) }}):</span>
                         <span class="font-bold text-sm text-slate-900">
                             ${{ number_format($reporteMensual->sum('total_vendido'), 2, ',', '.') }}
                         </span>
                     </div>
-                </div>
+                </section>
 
             </div>
         </div>
     </main>
 
-    <!-- Autocompletado de Ciudad Destino en Formulario y Montaje del Componente React (Requisito 7) -->
+    <footer class="bg-white border-t border-slate-200 mt-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap items-center justify-between text-xs text-slate-500">
+            <span>UVA3 Logística Nacional · Plataforma Corporativa de Despachos</span>
+            <span>Integración Transportadora: <code class="font-mono text-slate-700">POST https://tarifas.transportadora.test/v1/cotizar</code></span>
+        </div>
+    </footer>
+
+    <!-- SCRIPTS DE AUTOCOMPLETADO Y COMPONENTE REACT 18 -->
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const selectCliente = document.getElementById('select-cliente-crear');
@@ -548,7 +810,7 @@
             }
         });
 
-        // Componente React 18 (Requisito 7: Listado en React consumiendo el endpoint del punto 3: GET /api/pedidos?estado=...)
+        // Consola React 18 sincronizada con GET /api/pedidos?estado=...
         (function () {
             const rootEl = document.getElementById('react-pedidos-root');
             if (!rootEl || typeof React === 'undefined' || typeof ReactDOM === 'undefined') return;
@@ -583,7 +845,7 @@
                         const data = await res.json();
                         setRawResponse(data);
                         if (!res.ok || !data.ok) {
-                            throw new Error(data.message || 'Error al consultar el endpoint');
+                            throw new Error(data.message || 'Error al consultar el servicio de pedidos');
                         }
                         setPedidos(data.data || []);
                     } catch (err) {
@@ -627,95 +889,95 @@
                 };
 
                 return e('div', { className: 'space-y-4' },
-                    e('div', { className: 'flex flex-wrap items-center justify-between gap-3 bg-slate-900 text-white p-4 rounded-xl' },
+                    e('div', { className: 'flex flex-wrap items-center justify-between gap-3 bg-slate-900 text-white p-4 rounded-md' },
                         e('div', null,
-                            e('span', { className: 'text-[11px] font-bold uppercase tracking-wider text-sky-400' },
-                                '⚛ Requisito 7 (Opcional) — Componente React 18 en Vivo'
+                            e('span', { className: 'text-xs font-bold uppercase tracking-wider text-slate-300 block' },
+                                'Consola de Monitoreo API en Tiempo Real (React 18)'
                             ),
-                            e('div', { className: 'text-xs font-mono text-slate-300 mt-0.5' },
-                                'Consumiendo endpoint Requisito 3: ',
+                            e('div', { className: 'text-xs font-mono text-slate-400 mt-0.5' },
+                                'Endpoint: ',
                                 e('a', {
                                     href: endpoint,
                                     target: '_blank',
-                                    className: 'text-emerald-400 underline font-semibold'
+                                    className: 'text-sky-400 underline font-semibold'
                                 }, 'GET ' + endpoint)
                             )
                         ),
                         e('div', { className: 'flex flex-wrap items-center gap-2' },
-                            e('label', { className: 'flex items-center gap-1.5 text-xs bg-slate-800 px-3 py-1.5 rounded-lg cursor-pointer border border-slate-700' },
-                                e('input', {
-                                    type: 'checkbox',
-                                    checked: adminMode,
-                                    onChange: (ev) => setAdminMode(ev.target.checked)
-                                }),
-                                e('span', null, 'Modo Admin en API')
+                            e('select', {
+                                value: adminMode ? 'admin' : 'empleado',
+                                onChange: (ev) => setAdminMode(ev.target.value === 'admin'),
+                                className: 'text-xs bg-slate-800 text-white border border-slate-700 px-3 py-1.5 rounded font-medium'
+                            },
+                                e('option', { value: 'empleado' }, 'Perfil API: Empleado Operativo'),
+                                e('option', { value: 'admin' }, 'Perfil API: Administrador General')
                             ),
                             e('button', {
                                 type: 'button',
                                 onClick: () => setVerJson(!verJson),
-                                className: 'text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-lg font-medium'
-                            }, verJson ? 'Ocultar JSON' : 'Ver JSON Respuesta'),
+                                className: 'text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded font-medium'
+                            }, verJson ? 'Ocultar JSON' : 'Ver Respuesta JSON'),
                             e('button', {
                                 type: 'button',
                                 onClick: fetchPedidos,
-                                className: 'text-xs bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg font-semibold'
-                            }, '↻ Refrescar API')
+                                className: 'text-xs bg-blue-700 hover:bg-blue-600 px-3 py-1.5 rounded font-semibold'
+                            }, 'Sincronizar')
                         )
                     ),
 
-                    e('div', { className: 'flex flex-wrap items-center gap-2' },
+                    e('div', { className: 'flex flex-wrap items-center gap-1.5' },
                         ['pendiente', 'despachado', 'entregado', 'todos'].map((est) =>
                             e('button', {
                                 key: est,
                                 type: 'button',
                                 onClick: () => setEstadoFiltro(est),
-                                className: 'px-3.5 py-1.5 rounded-lg text-xs font-semibold capitalize transition ' +
+                                className: 'px-3.5 py-1.5 rounded text-xs font-semibold capitalize transition ' +
                                     (estadoFiltro === est
-                                        ? 'bg-indigo-600 text-white shadow-sm'
-                                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200')
-                            }, 'Estado: ' + est)
+                                        ? 'bg-slate-900 text-white'
+                                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200')
+                            }, 'Filtro: ' + est)
                         )
                     ),
 
-                    error && e('div', { className: 'p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs font-medium' }, '⚠ ' + error),
-                    mensaje && e('div', { className: 'p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium' }, '✓ ' + mensaje),
+                    error && e('div', { className: 'p-3 rounded bg-red-50 border border-red-200 text-red-800 text-xs font-medium' }, error),
+                    mensaje && e('div', { className: 'p-3 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium' }, mensaje),
 
                     verJson && rawResponse && e('pre', {
-                        className: 'p-3.5 bg-slate-950 text-emerald-300 rounded-xl text-xs overflow-x-auto max-h-60 font-mono'
+                        className: 'p-3.5 bg-slate-950 text-slate-200 rounded text-xs overflow-x-auto max-h-60 font-mono'
                     }, JSON.stringify(rawResponse, null, 2)),
 
                     loading
-                        ? e('div', { className: 'py-6 text-center text-xs text-slate-500' }, 'Consultando ' + endpoint + ' ...')
-                        : e('div', { className: 'overflow-x-auto border border-slate-200 rounded-xl' },
+                        ? e('div', { className: 'py-6 text-center text-xs text-slate-500' }, 'Sincronizando datos desde ' + endpoint + ' ...')
+                        : e('div', { className: 'overflow-x-auto border border-slate-200 rounded' },
                             e('table', { className: 'min-w-full divide-y divide-slate-200 text-xs' },
-                                e('thead', { className: 'bg-slate-50 text-slate-500 uppercase' },
+                                e('thead', { className: 'bg-slate-50 text-slate-600 uppercase' },
                                     e('tr', null,
-                                        e('th', { className: 'px-3 py-2.5 text-left' }, 'ID'),
+                                        e('th', { className: 'px-3 py-2.5 text-left' }, 'Orden'),
                                         e('th', { className: 'px-3 py-2.5 text-left' }, 'Cliente'),
                                         e('th', { className: 'px-3 py-2.5 text-left' }, 'Fecha'),
                                         e('th', { className: 'px-3 py-2.5 text-left' }, 'Destino'),
-                                        e('th', { className: 'px-3 py-2.5 text-right' }, 'Total'),
-                                        e('th', { className: 'px-3 py-2.5 text-right' }, 'Costo Envío'),
+                                        e('th', { className: 'px-3 py-2.5 text-right' }, 'Valor Venta'),
+                                        e('th', { className: 'px-3 py-2.5 text-right' }, 'Flete'),
                                         e('th', { className: 'px-3 py-2.5 text-center' }, 'Estado'),
-                                        e('th', { className: 'px-3 py-2.5 text-right' }, 'Cambiar vía API')
+                                        e('th', { className: 'px-3 py-2.5 text-right' }, 'Acción Rápida')
                                     )
                                 ),
-                                e('tbody', { className: 'divide-y divide-slate-100' },
+                                e('tbody', { className: 'divide-y divide-slate-200' },
                                     pedidos.length === 0
                                         ? e('tr', null,
                                             e('td', { colSpan: 8, className: 'px-3 py-4 text-center text-slate-400' },
-                                                'Sin pedidos para el filtro ' + estadoFiltro
+                                                'Sin registros para el estado ' + estadoFiltro
                                             )
                                         )
                                         : pedidos.map((p) => {
                                             const bloqueado = p.estado === 'entregado' && !adminMode;
                                             return e('tr', { key: p.id, className: 'hover:bg-slate-50' },
-                                                e('td', { className: 'px-3 py-2.5 font-bold' }, '#' + p.id),
+                                                e('td', { className: 'px-3 py-2.5 font-bold tabular-nums' }, '#' + p.id),
                                                 e('td', { className: 'px-3 py-2.5 font-medium text-slate-900' }, p.cliente ? p.cliente.nombre : '—'),
-                                                e('td', { className: 'px-3 py-2.5 text-slate-500' }, (p.fecha || '').substring(0, 10)),
+                                                e('td', { className: 'px-3 py-2.5 text-slate-500 tabular-nums' }, (p.fecha || '').substring(0, 10)),
                                                 e('td', { className: 'px-3 py-2.5 text-slate-600' }, p.ciudad_destino + ' (' + p.peso_kg + ' kg)'),
-                                                e('td', { className: 'px-3 py-2.5 text-right font-semibold' }, '$' + Number(p.total).toLocaleString('es-CO')),
-                                                e('td', { className: 'px-3 py-2.5 text-right text-sky-700 font-medium' },
+                                                e('td', { className: 'px-3 py-2.5 text-right font-semibold tabular-nums' }, '$' + Number(p.total).toLocaleString('es-CO')),
+                                                e('td', { className: 'px-3 py-2.5 text-right text-slate-800 font-medium tabular-nums' },
                                                     p.costo_envio !== null ? '$' + Number(p.costo_envio).toLocaleString('es-CO') : '—'
                                                 ),
                                                 e('td', { className: 'px-3 py-2.5 text-center font-bold uppercase' }, p.estado),

@@ -20,7 +20,6 @@ class PedidoController extends Controller
     ) {}
 
     /**
-     * Requisito 3:
      * GET /api/pedidos?estado=pendiente
      * Responde en JSON con el listado de pedidos (opcionalmente filtrado por estado).
      */
@@ -95,14 +94,13 @@ class PedidoController extends Controller
 
         return response()->json([
             'ok' => true,
-            'message' => 'Pedido creado exitosamente.',
+            'message' => 'Orden de pedido creada exitosamente.',
             'cotizacion' => $cotizacionInfo,
             'data' => $pedido->fresh('cliente'),
         ], 201);
     }
 
     /**
-     * Requisitos 5 y 6:
      * Cambia el estado de un pedido.
      * - Si el pedido está 'entregado', bloquea modificaciones salvo que sea Administrador.
      * - Si el nuevo estado es 'despachado', cotiza el envío en la API de la transportadora.
@@ -114,7 +112,7 @@ class PedidoController extends Controller
         if (! $pedido->puedeSerModificadoPor($esAdmin)) {
             return response()->json([
                 'ok' => false,
-                'message' => 'Los pedidos entregados no se pueden modificar. Solo el administrador puede corregir cualquier pedido.',
+                'message' => 'Los pedidos entregados no se pueden modificar. Solo el administrador puede corregir un pedido entregado.',
             ], 403);
         }
 
@@ -129,7 +127,6 @@ class PedidoController extends Controller
             'estado' => $nuevoEstado,
         ];
 
-        // Requisito 5: Al marcar como despachado, calcular el costo de envío consultando la API de tarifas
         if ($nuevoEstado === Pedido::ESTADO_DESPACHADO) {
             $cotizacionInfo = $this->transportadoraService->cotizarEnvio($pedido);
             $datosActualizar['costo_envio'] = $cotizacionInfo['costo_envio'];
@@ -141,17 +138,15 @@ class PedidoController extends Controller
         return response()->json([
             'ok' => true,
             'message' => $cotizacionInfo
-                ? "Pedido #{$pedido->id} marcado como despachado. Costo de envío: $" . number_format($cotizacionInfo['costo_envio'], 2)
-                : "Estado del pedido #{$pedido->id} actualizado a '{$nuevoEstado}'.",
+                ? "Orden #{$pedido->id} despachada. Costo de envío liquidado: $" . number_format($cotizacionInfo['costo_envio'], 2)
+                : "Estado de la orden #{$pedido->id} actualizado a '{$nuevoEstado}'.",
             'cotizacion' => $cotizacionInfo,
             'data' => $pedido->fresh('cliente'),
         ]);
     }
 
     /**
-     * Requisito 6:
-     * Corrección completa de un pedido (permitida al administrador incluso si está entregado,
-     * o a un operador únicamente si no está entregado).
+     * Edición y corrección completa de un pedido.
      */
     public function update(Request $request, Pedido $pedido): JsonResponse
     {
@@ -191,14 +186,34 @@ class PedidoController extends Controller
 
         return response()->json([
             'ok' => true,
-            'message' => "Pedido #{$pedido->id} corregido exitosamente.",
+            'message' => "Orden #{$pedido->id} actualizada exitosamente.",
             'cotizacion' => $cotizacionInfo,
             'data' => $pedido->fresh('cliente'),
         ]);
     }
 
     /**
-     * Requisito 4 (vía API):
+     * Elimina un pedido vía API (solo Administrador).
+     */
+    public function destroy(Request $request, Pedido $pedido): JsonResponse
+    {
+        if (! $this->esAdministrador($request)) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Solo el administrador está autorizado para eliminar pedidos.',
+            ], 403);
+        }
+
+        $id = $pedido->id;
+        $pedido->delete();
+
+        return response()->json([
+            'ok' => true,
+            'message' => "Orden #{$id} eliminada del sistema.",
+        ]);
+    }
+
+    /**
      * Reporte con el total vendido por cliente en el mes actual, de mayor a menor.
      */
     public function reporteVentasMes(): JsonResponse
@@ -218,7 +233,7 @@ class PedidoController extends Controller
     }
 
     /**
-     * Listado de clientes para formularios en React/API.
+     * Listado de clientes corporativos.
      */
     public function clientes(): JsonResponse
     {
@@ -228,10 +243,6 @@ class PedidoController extends Controller
         ]);
     }
 
-    /**
-     * Determina si la petición proviene de un administrador (por usuario autenticado,
-     * cabecera X-Admin-Mode, parámetro es_admin o sesión activa).
-     */
     private function esAdministrador(Request $request): bool
     {
         if ($request->user() && $request->user()->is_admin) {
